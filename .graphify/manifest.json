@@ -1,0 +1,178 @@
+{
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/db/001_schema.sql": {
+    "mtime": 1791037620000,
+    "hash": "cacbf3ddc9b2f721a870bd889eaff4d9"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/db/002_seed.sql": {
+    "mtime": 1791037620000,
+    "hash": "e923c95e57a08678c401fa5f1a5a1b39"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/install-test/_internal/db/001_schema.sql": {
+    "mtime": 1791040010000,
+    "hash": "cacbf3ddc9b2f721a870bd889eaff4d9"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/install-test/_internal/db/002_seed.sql": {
+    "mtime": 1791040010000,
+    "hash": "e923c95e57a08678c401fa5f1a5a1b39"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/install-test/_internal/src/sisalmacen/infrastructure/migrations/env.py": {
+    "mtime": 1791040010000,
+    "hash": "7a16a454763993839fcb33f884b070db"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/install-test/_internal/src/sisalmacen/infrastructure/migrations/versions/0001_initial.py": {
+    "mtime": 1791040010000,
+    "hash": "bea9498f3699cc9cd7da314ec173f869"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/__init__.py": {
+    "mtime": 1791036834000,
+    "hash": "614407bd10f7b4db2082e8e03910fc20"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/application/__init__.py": {
+    "mtime": 1791036848000,
+    "hash": "5f517b830fad52bce1b040b62fe7ab9b"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/application/auth.py": {
+    "mtime": 1791039326000,
+    "hash": "7d5eb2fbf8d94c8b204088b6e08d7421"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/application/uow.py": {
+    "mtime": 1791039592000,
+    "hash": "8c3f23ade6ab8f5295252c964d98a6f3"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/bootstrap.py": {
+    "mtime": 1791037072000,
+    "hash": "5accddefd32d4afa0b7fdfc88a68f4aa"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/domain/__init__.py": {
+    "mtime": 1791036840000,
+    "hash": "42301638cfceeea5666ab2e59243978c"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/domain/auth.py": {
+    "mtime": 1791039290000,
+    "hash": "5da044857c70ea8d56da917185888ef0"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/domain/errors.py": {
+    "mtime": 1791036872000,
+    "hash": "f78dca768e020d0be67d1ba13b227c03"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/domain/repositories.py": {
+    "mtime": 1791039592000,
+    "hash": "ee3480ab6076add2930e98aefc61eb06"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/__init__.py": {
+    "mtime": 1791036854000,
+    "hash": "d1279d2827cefc731d2620a82cb65f9b"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/config.py": {
+    "mtime": 1791036902000,
+    "hash": "a5b26d9a34fc2654b7b297dc9fb3e0d2"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/__init__.py": {
+    "mtime": 1791036922000,
+    "hash": "6b2d94252099f30faf4ac6ab0ca3d1b9"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/auth_repositories.py": {
+    "mtime": 1791039300000,
+    "hash": "aea72175aaf617cb0abab5a2c9f8545c"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/base.py": {
+    "mtime": 1791037694000,
+    "hash": "f8b22302691db0c65c97a3540b3142a8"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/bootstrap.py": {
+    "mtime": 1791040026000,
+    "hash": "caf9841c8cff08e14ea797490dc24881"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/models.py": {
+    "mtime": 1791037694000,
+    "hash": "f41bfcddfdf660f88013800948c9058b"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/repositories.py": {
+    "mtime": 1791039592000,
+    "hash": "56cf645cbea482a124f17e475ea8c3bf"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/session.py": {
+    "mtime": 1791036958000,
+    "hash": "cd13c4ce8d847927cf364052ddee2281"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/types.py": {
+    "mtime": 1791039164000,
+    "hash": "6e30d7dbb4c2a4fafd019e7eb25e7d58"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/db/uow.py": {
+    "mtime": 1791039592000,
+    "hash": "58aecde69b67ed3dea8360b4e847ffd6"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/logging.py": {
+    "mtime": 1791036914000,
+    "hash": "1c550218095ae921b5eeac12725dc695"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/migrations/env.py": {
+    "mtime": 1791037694000,
+    "hash": "7a16a454763993839fcb33f884b070db"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/migrations/versions/0001_initial.py": {
+    "mtime": 1791037694000,
+    "hash": "bea9498f3699cc9cd7da314ec173f869"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/infrastructure/security/__init__.py": {
+    "mtime": 1791038096000,
+    "hash": "d61b3c774f0be30123508117c1266ad3"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/main.py": {
+    "mtime": 1791040330000,
+    "hash": "c3278ea4cbdfbcf574723b5d8fc69223"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/__init__.py": {
+    "mtime": 1791036862000,
+    "hash": "0f04a6d2205392df807e1b97760248ee"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/dialogs/__init__.py": {
+    "mtime": 1791038128000,
+    "hash": "12c4750f174676dcfa39221ec659e377"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/dialogs/initial_setup_dialog.py": {
+    "mtime": 1791040330000,
+    "hash": "b66a551beb05c9ea8393c565923ba32b"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/dialogs/login_dialog.py": {
+    "mtime": 1791040330000,
+    "hash": "bbb03434e5507ca95959698ce2d34933"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/main_window.py": {
+    "mtime": 1791040804000,
+    "hash": "d7ab0b07d0b838936ce28c4fd9698191"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/src/sisalmacen/ui/theme.py": {
+    "mtime": 1791040330000,
+    "hash": "de41273bf171df40bd4d152d48235e54"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/conftest.py": {
+    "mtime": 1791037694000,
+    "hash": "0dc2a33addf7a3580c876db77c08accb"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/integration/test_auth_services.py": {
+    "mtime": 1791039352000,
+    "hash": "65137982951115c646df13e6ead49209"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/integration/test_schema_reference.py": {
+    "mtime": 1791039592000,
+    "hash": "c6dcf6fbc20b6cfee80666cbed035514"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/integration/test_uow.py": {
+    "mtime": 1791037208000,
+    "hash": "0520ca61af03f18bc470f3554d019bdf"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/ui/test_main_window_navigation.py": {
+    "mtime": 1791040750000,
+    "hash": "84787fb1ff921102070e5ac751488a5d"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/unit/test_brand_theme.py": {
+    "mtime": 1791040330000,
+    "hash": "b17942571f981401d3a520e0e4d25b2e"
+  },
+  "c:/Users/friveraq/Downloads/SisAlmacen 1 (1)/SisAlmacen/SisAlmacen/tests/unit/test_types.py": {
+    "mtime": 1791037176000,
+    "hash": "6beb383b985270c1617e13dd8cbca9ee"
+  }
+}

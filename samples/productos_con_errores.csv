@@ -1,0 +1,11 @@
+codigo,nombre,categoria,unidad,codigo_barras,descripcion,marca,proveedor,ubicacion,precio_compra,precio_venta,stock_minimo,stock_maximo,stock,estado,observaciones
+P-0101,Producto correcto,Ferretería,UND,7750000000101,,,,,1.00,2.00,5,50,10,ACTIVO,
+,Sin código,Ferretería,UND,,,,,,1.00,2.00,,,,ACTIVO,E01 código vacío
+P-0101,Código duplicado en archivo,Ferretería,UND,,,,,,1.00,2.00,,,,ACTIVO,E02 duplicado interno
+P-0103,,Ferretería,UND,,,,,,1.00,2.00,,,,ACTIVO,E03 nombre vacío en alta
+P-0104,Categoría inexistente,NoExiste,UND,,,,,,1.00,2.00,,,,ACTIVO,E04 catálogo inexistente
+P-0105,Precio inválido,Ferretería,UND,,,,,,abc,2.00,,,,ACTIVO,E05 número inválido
+P-0106,Mínimo mayor que máximo,Ferretería,UND,,,,,,1.00,2.00,100,10,,ACTIVO,E06 regla min/max
+P-0107,Decimales no permitidos,Ferretería,UND,,,,,,1.00,2.00,,,2.5,ACTIVO,E07 unidad sin decimales
+P-0108,Stock negativo,Ferretería,UND,,,,,,1.00,2.00,,,-5,ACTIVO,E08 stock negativo
+P-0109,Estado inválido,Ferretería,UND,,,,,,1.00,2.00,,,,PAUSADO,E09 estado fuera de dominio

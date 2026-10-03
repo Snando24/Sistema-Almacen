@@ -1,0 +1,70 @@
+# Python / entorno local
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+
+# Build / empaquetado
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.tar.gz
+installer/
+
+# Datos locales y runtime
+logs/
+var/
+*.sqlite3
+*.sqlite
+*.db
+*.db3
+*.log
+*.bak
+*.backup
+*.zip
+*.tar
+*.gz
+*.7z
+
+# IDE / sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# secretos / entorno
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.pfx
+*.token
+secrets/
+config/local*.json
+
+# Archivos generados por la app que no deben subirse
+*.tmp
+*.orig
+
+# Mantener código y documentación del repositorio
+!src/
+!tests/
+!db/
+!samples/
+!README.txt
+!pyproject.toml
+!alembic.ini
+!AGENTS.md
+!*.md

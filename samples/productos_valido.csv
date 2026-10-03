@@ -1,0 +1,6 @@
+codigo,nombre,categoria,unidad,codigo_barras,descripcion,marca,proveedor,ubicacion,precio_compra,precio_venta,stock_minimo,stock_maximo,stock,estado,observaciones
+P-0001,Tornillo hexagonal 1/4,Ferretería,UND,7750000000011,Tornillo acero zincado,Acme,Distribuidora Norte,A-01-02,0.15,0.30,100,1000,500,ACTIVO,
+P-0002,Cable eléctrico 2.5 mm,Eléctricos,MT,7750000000028,Cable THW unipolar,Indeco,Distribuidora Norte,A-02-01,1.80,2.50,50,500,120.5,ACTIVO,Se vende por metro
+P-0003,Pintura látex blanca 1 gl,Pinturas,UND,,Galón látex interior,Vencedor,Pinturas SAC,B-01-01,45.00,62.90,5,40,12,ACTIVO,
+P-0004,Cemento Portland 42.5 kg,Construcción,UND,7750000000035,Bolsa 42.5 kg,Sol,Cementos SA,C-01-01,24.50,29.90,50,400,0,ACTIVO,Stock inicial en cero
+P-0005,Guantes de cuero,Seguridad,UND,,Par de guantes,,,,8.00,,10,,25,INACTIVO,Descontinuado
