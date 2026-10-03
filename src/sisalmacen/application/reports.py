@@ -125,10 +125,6 @@ class ReportService:
     def _product_table(
         self, uow: WorkUnit, key: str, title: str, product_filter: ProductFilter
     ) -> ReportData:
-        settings = uow.settings.get_all()
-        product_filter.usar_stock_maximo = flag(
-            settings, "inventario.usar_stock_maximo", default=False
-        )
         items = uow.products.search(product_filter, page=1, page_size=0).items
         prices = self._show_prices(uow)
         headers = ["Código", "Descripción", "Categoría", "Unidad", "Stock", "Mínimo"]
@@ -150,7 +146,7 @@ class ReportService:
             ]
             if prices:
                 row += [item.precio_compra, item.precio_venta]
-            alert = item.alert(usar_stock_maximo=product_filter.usar_stock_maximo)
+            alert = item.alert()
             row += ["Activo" if item.activo else "Inactivo", ALERT_LABELS.get(alert or "", "")]
             rows.append(row)
         return ReportData(

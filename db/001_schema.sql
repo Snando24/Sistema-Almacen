@@ -112,15 +112,13 @@ CREATE TABLE producto (
     precio_compra  INTEGER CHECK (precio_compra IS NULL OR precio_compra >= 0),
     precio_venta   INTEGER CHECK (precio_venta  IS NULL OR precio_venta  >= 0),
     stock_minimo   INTEGER CHECK (stock_minimo  IS NULL OR stock_minimo  >= 0),
-    stock_maximo   INTEGER CHECK (stock_maximo  IS NULL OR stock_maximo  >= 0),
     observaciones  TEXT,
     activo         INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
     creado_en      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     creado_por     INTEGER REFERENCES usuario(id),
     actualizado_en TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     actualizado_por INTEGER REFERENCES usuario(id),
-    row_version    INTEGER NOT NULL DEFAULT 1,
-    CHECK (stock_maximo IS NULL OR stock_minimo IS NULL OR stock_maximo >= stock_minimo)
+    row_version    INTEGER NOT NULL DEFAULT 1
 );
 
 -- Código de barras único solo entre productos activos (RF-012).

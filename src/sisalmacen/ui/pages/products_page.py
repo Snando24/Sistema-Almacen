@@ -25,7 +25,6 @@ from sisalmacen.domain.inventory import (
     ALERT_CUALQUIERA,
     ALERT_LABELS,
     ALERT_SIN_STOCK,
-    ALERT_SOBRE_MAXIMO,
     ProductFilter,
     ProductRecord,
 )
@@ -49,7 +48,6 @@ PAGE_SIZE = 50
 _ALERT_COLORS = {
     ALERT_SIN_STOCK: QColor("#fde2e4"),
     ALERT_BAJO_MINIMO: QColor("#fff3cd"),
-    ALERT_SOBRE_MAXIMO: QColor("#dbeafe"),
 }
 _INACTIVE_COLOR = QColor("#e5e5e2")
 
@@ -197,9 +195,6 @@ class ProductsPage(QWidget):
                     blank=blank,
                     selected_id=selected,
                 )
-            self._use_max = flag(
-                self._services.settings.read_all(), "inventario.usar_stock_maximo", default=False
-            )
         except Exception as error:
             show_error(self, error)
 
@@ -239,7 +234,7 @@ class ProductsPage(QWidget):
         rows: list[list[str]] = []
         colors: list[QColor | None] = []
         for item in result.items:
-            alert = item.alert(usar_stock_maximo=self._use_max)
+            alert = item.alert()
             row = [
                 item.codigo,
                 item.nombre,

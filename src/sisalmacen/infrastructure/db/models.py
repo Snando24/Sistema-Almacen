@@ -135,10 +135,6 @@ class Ubicacion(Base):
 class Producto(Base):
     __tablename__ = "producto"
     __table_args__ = (
-        CheckConstraint(
-            "stock_maximo IS NULL OR stock_minimo IS NULL OR stock_maximo >= stock_minimo",
-            name="producto_stock_max_ge_min",
-        ),
         Index(
             "ux_producto_barras",
             "codigo_barras",
@@ -165,7 +161,6 @@ class Producto(Base):
     precio_compra: Mapped[Decimal | None] = mapped_column(ScaledMoney())
     precio_venta: Mapped[Decimal | None] = mapped_column(ScaledMoney())
     stock_minimo: Mapped[Decimal | None] = mapped_column(ScaledQuantity())
-    stock_maximo: Mapped[Decimal | None] = mapped_column(ScaledQuantity())
     observaciones: Mapped[str | None] = mapped_column(Text)
     activo: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     creado_en: Mapped[str] = mapped_column(String, nullable=False, server_default=UTC_NOW_SQL)

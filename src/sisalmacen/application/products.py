@@ -50,10 +50,6 @@ class ProductService:
     ) -> Page[ProductRecord]:
         self._authz.require_permission(self._actor, "productos.ver")
         with self._uow_factory() as uow:
-            settings = uow.settings.get_all()
-            product_filter.usar_stock_maximo = flag(
-                settings, "inventario.usar_stock_maximo", default=False
-            )
             result = uow.products.search(product_filter, page=page, page_size=page_size)
         if self._hide_prices(settings):
             return Page(
@@ -224,7 +220,6 @@ class ProductService:
             _check_non_negative(price, label, MONEY_PLACES)
         for label, qty in (
             ("stock mínimo", data.stock_minimo),
-            ("stock máximo", data.stock_maximo),
         ):
             _check_non_negative(qty, label, QUANTITY_PLACES)
             if qty is not None and not allow_decimals and not is_whole(qty):
@@ -232,15 +227,6 @@ class ProductService:
                     f"El {label} debe ser entero para la unidad {unit.get('codigo')}.",
                     code="CANTIDAD_INVALIDA",
                 )
-        if (
-            data.stock_minimo is not None
-            and data.stock_maximo is not None
-            and data.stock_maximo < data.stock_minimo
-        ):
-            raise BusinessRuleViolation(
-                "El stock máximo no puede ser menor que el mínimo.",
-                code="STOCK_MAXIMO_MENOR_MINIMO",
-            )
 
         return replace(
             data,

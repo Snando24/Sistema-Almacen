@@ -97,9 +97,6 @@ def test_product_rules(services, make_product) -> None:  # type: ignore[no-untyp
     with pytest.raises(ConflictError) as dup_barcode:
         make_product("P-2", codigo_barras="777")
     assert dup_barcode.value.code == "PRODUCTO_BARRAS_DUPLICADO"
-    with pytest.raises(BusinessRuleViolation) as bad_range:
-        make_product("P-3", stock_minimo=D(10), stock_maximo=D(5))
-    assert bad_range.value.code == "STOCK_MAXIMO_MENOR_MINIMO"
 
     # El código de barras queda libre al desactivar y la reactivación se valida (RB-06).
     services.products.deactivate(product_id)
@@ -277,23 +274,19 @@ def test_movement_types_admin(services) -> None:  # type: ignore[no-untyped-def]
 
 def test_alerts_and_dashboard(services, make_product) -> None:  # type: ignore[no-untyped-def]
     empty = make_product("E-1")
-    low = make_product("L-1", stock_minimo=D(5), stock_maximo=D(10))
-    over = make_product("O-1", stock_minimo=D(1), stock_maximo=D(10))
+    low = make_product("L-1", stock_minimo=D(5))
     _entry(services, "ENT_COMPRA", low, "5", D("2.5"))
-    _entry(services, "ENT_COMPRA", over, "11", D("1"))
 
     def codes(alert: str) -> list[str]:
         return [p.codigo for p in services.products.search(ProductFilter(alerta=alert)).items]
 
     assert codes(ALERT_SIN_STOCK) == ["E-1"]
     assert codes(ALERT_BAJO_MINIMO) == ["L-1"]
-    assert codes("SOBRE_MAXIMO") == ["O-1"]
-    assert sorted(codes("CUALQUIERA")) == ["E-1", "L-1", "O-1"]
+    assert sorted(codes("CUALQUIERA")) == ["E-1", "L-1"]
     assert empty
 
     snapshot = services.load_dashboard()
     assert (snapshot.productos_sin_stock, snapshot.productos_bajo_minimo) == (1, 1)
-    assert snapshot.productos_sobre_maximo == 1
     assert snapshot.entradas_hoy >= 0
 
 

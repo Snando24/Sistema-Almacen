@@ -1,1 +1,268 @@
-"""Reglas puras: alertas, decimales y clasificación de filas CSV (E01–E24)."""from __future__ import annotationsfrom decimal import Decimalimport pytestfrom sisalmacen.application.importing import (    classify_rows,    normalize_header,    parse_decimal,)from sisalmacen.domain.importing import (    ExistingProduct,    ImportLookups,    ImportOptions,    PendingCatalog,    UnitInfo,)from sisalmacen.domain.inventory import (    ALERT_BAJO_MINIMO,    ALERT_SIN_STOCK,    ALERT_SOBRE_MAXIMO,    compute_alert,    decimal_places,    is_whole,)D = Decimal@pytest.mark.parametrize(    ("qty", "minimum", "maximum", "expected"),    [        (D(0), D(5), D(10), ALERT_SIN_STOCK),        (D(-1), D(5), D(10), ALERT_SIN_STOCK),        (D(0), None, None, ALERT_SIN_STOCK),        (D(5), D(5), D(10), ALERT_BAJO_MINIMO),  # borde: igual al mínimo        (D(1), D(5), D(10), ALERT_BAJO_MINIMO),        (D(6), D(5), D(10), None),        (D(10), D(5), D(10), None),  # borde: igual al máximo no alerta        (D(11), D(5), D(10), ALERT_SOBRE_MAXIMO),        (D(3), None, None, None),    ],)def test_compute_alert_edges(    qty: Decimal, minimum: Decimal | None, maximum: Decimal | None, expected: str | None) -> None:    assert compute_alert(qty, minimum, maximum) == expecteddef test_compute_alert_respects_max_setting() -> None:    assert compute_alert(D(11), D(5), D(10), usar_stock_maximo=False) is Nonedef test_decimal_helpers() -> None:    assert decimal_places(D("1.500")) == 1    assert decimal_places(D("100")) == 0    assert is_whole(D("3.000"))    assert not is_whole(D("3.5"))def test_header_and_decimal_parsing() -> None:    assert normalize_header("  Código Barras ") == "codigo_barras"    assert parse_decimal("1.5", ".") == D("1.5")    assert parse_decimal("1,5", ",") == D("1.5")    with pytest.raises(Exception):  # noqa: B017, PT011        parse_decimal("1,5", ".")def _lookups(existing: list[ExistingProduct] | None = None) -> ImportLookups:    und = UnitInfo(id=1, permite_decimales=False)    mt = UnitInfo(id=2, permite_decimales=True)    products = {p.codigo.lower(): p for p in (existing or [])}    return ImportLookups(        categorias={"ferretería": 1},        marcas={"acme": 1},        proveedores={},        ubicaciones={},        unidades={"und": und, "unidad": und, "mt": mt, "metro": mt},        unidades_por_id={1: und, 2: mt},        productos=products,        barcodes={p.codigo_barras: p.codigo for p in products.values() if p.codigo_barras},    )def _existing(**overrides: object) -> ExistingProduct:    base: dict[str, object] = {        "id": 10,        "codigo": "P-1",        "nombre": "Tornillo",        "activo": True,        "unidad_id": 1,        "categoria_id": 1,        "marca_id": None,        "proveedor_id": None,        "ubicacion_id": None,        "codigo_barras": None,        "descripcion": None,        "precio_compra": None,        "precio_venta": None,        "stock_minimo": None,        "stock_maximo": None,        "observaciones": None,        "cantidad": D(5),        "has_movements": False,    }    base.update(overrides)    return ExistingProduct(**base)  # type: ignore[arg-type]def _row(**values: str) -> dict[str, str]:    row = {"codigo": "N-1", "nombre": "Nuevo", "categoria": "Ferretería", "unidad": "UND"}    row.update(values)    return rowdef _codes(    rows: list[dict[str, str]], options: ImportOptions | None = None, lookups=None) -> list[set[str]]:  # type: ignore[no-untyped-def]    results = classify_rows(        list(enumerate(rows, start=2)), options or ImportOptions(), lookups or _lookups()    )    return [{e.code for e in r.errors} for r in results]def test_import_allows_an_insert_without_external_code() -> None:    assert _codes([_row(codigo="")]) == [set()]def test_import_update_requires_an_external_code() -> None:    assert _codes([_row(codigo="")], ImportOptions(mode="ACTUALIZAR")) == [{"E01"}]@pytest.mark.parametrize(    ("overrides", "code"),    [        ({"nombre": ""}, "E03"),        ({"categoria": "NoExiste"}, "E04"),        ({"precio_compra": "abc"}, "E05"),        ({"stock": "2.5"}, "E07"),        ({"stock": "-5"}, "E08"),        ({"estado": "PAUSADO"}, "E09"),        ({"codigo": "X" * 51}, "E10"),        ({"stock": "1000000000"}, "E24"),    ],)def test_row_error_codes(overrides: dict[str, str], code: str) -> None:    assert code in _codes([_row(**overrides)])[0]def test_duplicate_code_in_file_is_e02() -> None:    codes = _codes([_row(), _row(nombre="Otro")])    assert codes[0] == set()    assert codes[1] == {"E02"}def test_duplicate_barcode_inside_file_and_against_existing_is_e11() -> None:    inside = _codes([_row(codigo_barras="777"), _row(codigo="N-2", codigo_barras="777")])    assert inside[1] == {"E11"}    against = _codes(        [_row(codigo_barras="888")], lookups=_lookups([_existing(codigo_barras="888")])    )    assert against[0] == {"E11"}def test_mode_errors_e20_e21() -> None:    lookups = _lookups([_existing()])    assert _codes([_row(codigo="P-1")], ImportOptions(mode="INSERTAR"), lookups)[0] == {"E20"}    assert _codes([_row(codigo="NUEVO")], ImportOptions(mode="ACTUALIZAR"), lookups)[0] == {"E21"}def test_unit_change_with_movements_is_e22() -> None:    lookups = _lookups([_existing(has_movements=True)])    codes = _codes([{"codigo": "P-1", "unidad": "MT"}], lookups=lookups)    assert codes[0] == {"E22"}def test_stock_on_inactive_product_is_e23_only_when_applying_stock() -> None:    lookups = _lookups([_existing(activo=False)])    row = {"codigo": "P-1", "stock": "3"}    assert _codes([row], ImportOptions(apply_stock=True), lookups)[0] == {"E23"}    assert _codes([row], ImportOptions(apply_stock=False), lookups)[0] == set()def test_update_empty_means_keep_and_borrar_clears() -> None:    existing = _existing(descripcion="vieja", marca_id=1)    lookups = _lookups([existing])    keep = classify_rows([(2, {"codigo": "P-1", "nombre": ""})], ImportOptions(), lookups)[0]    assert keep.accion == "SIN_CAMBIOS"    cleared = classify_rows(        [(2, {"codigo": "P-1", "descripcion": "[BORRAR]", "marca": "[BORRAR]"})],        ImportOptions(),        lookups,    )[0]    assert cleared.accion == "ACTUALIZAR"    assert cleared.values == {"descripcion": None, "marca_id": None}def test_missing_catalog_is_created_only_with_option() -> None:    row = _row(marca="Nueva")    assert _codes([row])[0] == {"E04"}    result = classify_rows([(2, row)], ImportOptions(create_missing_catalogs=True), _lookups())[0]    assert result.errors == []    assert result.values["marca_id"] == PendingCatalog("marca", "Nueva")def test_decimal_comma_option() -> None:    result = classify_rows(        [(2, _row(unidad="MT", precio_compra="1,25"))],        ImportOptions(decimal_separator=","),        _lookups(),    )[0]    assert result.errors == []    assert result.values["precio_compra"] == D("1.25")
+"""Reglas puras: alertas, decimales y clasificación de filas CSV (E01–E24)."""
+
+from __future__ import annotations
+
+
+from decimal import Decimal
+
+
+import pytest
+
+
+from sisalmacen.application.importing import (
+    classify_rows,
+    normalize_header,
+    parse_decimal,
+)
+
+from sisalmacen.domain.importing import (
+    ExistingProduct,
+    ImportLookups,
+    ImportOptions,
+    PendingCatalog,
+    UnitInfo,
+)
+
+from sisalmacen.domain.inventory import (
+    ALERT_BAJO_MINIMO,
+    ALERT_SIN_STOCK,
+    compute_alert,
+    decimal_places,
+    is_whole,
+)
+
+
+D = Decimal
+
+
+@pytest.mark.parametrize(
+    ("qty", "minimum", "expected"),
+    [
+        (D(0), D(5), ALERT_SIN_STOCK),
+        (D(-1), D(5), ALERT_SIN_STOCK),
+        (D(0), None, ALERT_SIN_STOCK),
+        (D(5), D(5), ALERT_BAJO_MINIMO),  # borde: igual al mínimo
+        (D(1), D(5), ALERT_BAJO_MINIMO),
+        (D(6), D(5), None),
+        (D(3), None, None),
+    ],
+)
+def test_compute_alert_edges(
+    qty: Decimal, minimum: Decimal | None, expected: str | None
+) -> None:
+
+    assert compute_alert(qty, minimum) == expected
+
+
+def test_decimal_helpers() -> None:
+
+    assert decimal_places(D("1.500")) == 1
+
+    assert decimal_places(D("100")) == 0
+
+    assert is_whole(D("3.000"))
+
+    assert not is_whole(D("3.5"))
+
+
+def test_header_and_decimal_parsing() -> None:
+
+    assert normalize_header("  Código Barras ") == "codigo_barras"
+
+    assert parse_decimal("1.5", ".") == D("1.5")
+
+    assert parse_decimal("1,5", ",") == D("1.5")
+
+    with pytest.raises(Exception):  # noqa: B017, PT011
+        parse_decimal("1,5", ".")
+
+
+def _lookups(existing: list[ExistingProduct] | None = None) -> ImportLookups:
+
+    und = UnitInfo(id=1, permite_decimales=False)
+
+    mt = UnitInfo(id=2, permite_decimales=True)
+
+    products = {p.codigo.lower(): p for p in (existing or [])}
+
+    return ImportLookups(
+        categorias={"ferretería": 1},
+        marcas={"acme": 1},
+        proveedores={},
+        ubicaciones={},
+        unidades={"und": und, "unidad": und, "mt": mt, "metro": mt},
+        unidades_por_id={1: und, 2: mt},
+        productos=products,
+        barcodes={p.codigo_barras: p.codigo for p in products.values() if p.codigo_barras},
+    )
+
+
+def _existing(**overrides: object) -> ExistingProduct:
+
+    base: dict[str, object] = {
+        "id": 10,
+        "codigo": "P-1",
+        "nombre": "Tornillo",
+        "activo": True,
+        "unidad_id": 1,
+        "categoria_id": 1,
+        "marca_id": None,
+        "proveedor_id": None,
+        "ubicacion_id": None,
+        "codigo_barras": None,
+        "descripcion": None,
+        "precio_compra": None,
+        "precio_venta": None,
+        "stock_minimo": None,
+        "stock_maximo": None,
+        "observaciones": None,
+        "cantidad": D(5),
+        "has_movements": False,
+    }
+
+    base.update(overrides)
+
+    return ExistingProduct(**base)  # type: ignore[arg-type]
+
+
+def _row(**values: str) -> dict[str, str]:
+
+    row = {"codigo": "N-1", "nombre": "Nuevo", "categoria": "Ferretería", "unidad": "UND"}
+
+    row.update(values)
+
+    return row
+
+
+def _codes(
+    rows: list[dict[str, str]], options: ImportOptions | None = None, lookups=None
+) -> list[set[str]]:  # type: ignore[no-untyped-def]
+    results = classify_rows(
+        list(enumerate(rows, start=2)), options or ImportOptions(), lookups or _lookups()
+    )
+
+    return [{e.code for e in r.errors} for r in results]
+
+
+def test_import_allows_an_insert_without_external_code() -> None:
+    assert _codes([_row(codigo="")]) == [set()]
+
+
+def test_import_update_requires_an_external_code() -> None:
+    assert _codes([_row(codigo="")], ImportOptions(mode="ACTUALIZAR")) == [{"E01"}]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "code"),
+    [
+        ({"nombre": ""}, "E03"),
+        ({"categoria": "NoExiste"}, "E04"),
+        ({"precio_compra": "abc"}, "E05"),
+        ({"stock": "2.5"}, "E07"),
+        ({"stock": "-5"}, "E08"),
+        ({"estado": "PAUSADO"}, "E09"),
+        ({"codigo": "X" * 51}, "E10"),
+        ({"stock": "1000000000"}, "E24"),
+    ],
+)
+def test_row_error_codes(overrides: dict[str, str], code: str) -> None:
+
+    assert code in _codes([_row(**overrides)])[0]
+
+
+def test_duplicate_code_in_file_is_e02() -> None:
+
+    codes = _codes([_row(), _row(nombre="Otro")])
+
+    assert codes[0] == set()
+
+    assert codes[1] == {"E02"}
+
+
+def test_duplicate_barcode_inside_file_and_against_existing_is_e11() -> None:
+
+    inside = _codes([_row(codigo_barras="777"), _row(codigo="N-2", codigo_barras="777")])
+
+    assert inside[1] == {"E11"}
+
+    against = _codes(
+        [_row(codigo_barras="888")], lookups=_lookups([_existing(codigo_barras="888")])
+    )
+
+    assert against[0] == {"E11"}
+
+
+def test_mode_errors_e20_e21() -> None:
+
+    lookups = _lookups([_existing()])
+
+    assert _codes([_row(codigo="P-1")], ImportOptions(mode="INSERTAR"), lookups)[0] == {"E20"}
+
+    assert _codes([_row(codigo="NUEVO")], ImportOptions(mode="ACTUALIZAR"), lookups)[0] == {"E21"}
+
+
+def test_unit_change_with_movements_is_e22() -> None:
+
+    lookups = _lookups([_existing(has_movements=True)])
+
+    codes = _codes([{"codigo": "P-1", "unidad": "MT"}], lookups=lookups)
+
+    assert codes[0] == {"E22"}
+
+
+def test_stock_on_inactive_product_is_e23_only_when_applying_stock() -> None:
+
+    lookups = _lookups([_existing(activo=False)])
+
+    row = {"codigo": "P-1", "stock": "3"}
+
+    assert _codes([row], ImportOptions(apply_stock=True), lookups)[0] == {"E23"}
+
+    assert _codes([row], ImportOptions(apply_stock=False), lookups)[0] == set()
+
+
+def test_update_empty_means_keep_and_borrar_clears() -> None:
+
+    existing = _existing(descripcion="vieja", marca_id=1)
+
+    lookups = _lookups([existing])
+
+    keep = classify_rows([(2, {"codigo": "P-1", "nombre": ""})], ImportOptions(), lookups)[0]
+
+    assert keep.accion == "SIN_CAMBIOS"
+
+    cleared = classify_rows(
+        [(2, {"codigo": "P-1", "descripcion": "[BORRAR]", "marca": "[BORRAR]"})],
+        ImportOptions(),
+        lookups,
+    )[0]
+
+    assert cleared.accion == "ACTUALIZAR"
+
+    assert cleared.values == {"descripcion": None, "marca_id": None}
+
+
+def test_missing_catalog_is_created_only_with_option() -> None:
+
+    row = _row(marca="Nueva")
+
+    assert _codes([row])[0] == {"E04"}
+
+    result = classify_rows([(2, row)], ImportOptions(create_missing_catalogs=True), _lookups())[0]
+
+    assert result.errors == []
+
+    assert result.values["marca_id"] == PendingCatalog("marca", "Nueva")
+
+
+def test_decimal_comma_option() -> None:
+
+    result = classify_rows(
+        [(2, _row(unidad="MT", precio_compra="1,25"))],
+        ImportOptions(decimal_separator=","),
+        _lookups(),
+    )[0]
+
+    assert result.errors == []
+
+    assert result.values["precio_compra"] == D("1.25")

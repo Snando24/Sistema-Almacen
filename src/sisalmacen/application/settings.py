@@ -30,7 +30,6 @@ SETTING_SPECS: tuple[SettingSpec, ...] = (
     SettingSpec(
         "inventario.permitir_stock_negativo", "Permitir stock negativo", "bool", "Inventario"
     ),
-    SettingSpec("inventario.usar_stock_maximo", "Alertar sobre stock máximo", "bool", "Inventario"),
     SettingSpec(
         "inventario.usar_precios", "Gestionar precios y valorización", "bool", "Inventario"
     ),

@@ -698,7 +698,6 @@ def _product_data(row: RowResult, resolve: Callable[[Any], Any]) -> ProductData:
         precio_compra=values.get("precio_compra"),
         precio_venta=values.get("precio_venta"),
         stock_minimo=values.get("stock_minimo"),
-        stock_maximo=values.get("stock_maximo"),
         observaciones=values.get("observaciones"),
         activo=values.get("activo", True),
     )

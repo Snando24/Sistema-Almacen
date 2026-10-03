@@ -65,7 +65,6 @@ class DashboardSnapshot:
     backup_carpeta: str
     productos_sin_stock: int = 0
     productos_bajo_minimo: int = 0
-    productos_sobre_maximo: int = 0
     entradas_hoy: int = 0
     salidas_hoy: int = 0
     valor_inventario: Decimal = Decimal(0)

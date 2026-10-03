@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from sisalmacen.application.services import AppServices
 from sisalmacen.application.settings import flag
-from sisalmacen.domain.inventory import ALERT_BAJO_MINIMO, ALERT_SIN_STOCK, ALERT_SOBRE_MAXIMO
+from sisalmacen.domain.inventory import ALERT_BAJO_MINIMO, ALERT_SIN_STOCK
 from sisalmacen.ui.theme import BRAND_NAME
 from sisalmacen.ui.widgets import build_page_header, fmt_money, secondary_button, show_error
 
@@ -55,7 +55,6 @@ class DashboardPage(QScrollArea):
         show_prices = "productos.ver_precios" in self._services.session.permisos and flag(
             settings, "inventario.usar_precios", default=True
         )
-        use_max = flag(settings, "inventario.usar_stock_maximo", default=False)
 
         page = QWidget()
         layout = QVBoxLayout()
@@ -93,15 +92,6 @@ class DashboardPage(QScrollArea):
                 alert=ALERT_BAJO_MINIMO,
             ),
         ]
-        if use_max:
-            cards.append(
-                self._card(
-                    "Sobre el máximo",
-                    str(snapshot.productos_sobre_maximo),
-                    "Stock > máximo",
-                    alert=ALERT_SOBRE_MAXIMO,
-                )
-            )
         cards.append(self._card("Entradas de hoy", str(snapshot.entradas_hoy), "Movimientos"))
         cards.append(self._card("Salidas de hoy", str(snapshot.salidas_hoy), "Movimientos"))
         if show_prices:

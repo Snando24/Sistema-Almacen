@@ -189,7 +189,6 @@ class ProductDialog(QDialog):
                 precio_compra=parse_decimal_input(self._cost.text(), "Precio de compra"),
                 precio_venta=parse_decimal_input(self._price.text(), "Precio de venta"),
                 stock_minimo=parse_decimal_input(self._minimum.text(), "Stock mínimo"),
-                stock_maximo=self._product.stock_maximo if self._product else None,
                 observaciones=self._notes.text(),
             )
             if self._product is None:
@@ -218,7 +217,7 @@ class ProductDetailDialog(QDialog):
         self.setWindowTitle("Detalle de producto")
         self.resize(900, 600)
         record = services.products.get(product_id)
-        alert = record.alert(usar_stock_maximo=False)
+        alert = record.alert()
 
         summary = QTextBrowser()
         summary.setMaximumHeight(210)

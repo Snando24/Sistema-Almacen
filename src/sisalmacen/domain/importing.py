@@ -99,7 +99,6 @@ class ExistingProduct:
     precio_compra: Decimal | None
     precio_venta: Decimal | None
     stock_minimo: Decimal | None
-    stock_maximo: Decimal | None
     observaciones: str | None
     cantidad: Decimal
     has_movements: bool
