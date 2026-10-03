@@ -22,14 +22,14 @@ QUANTITY_PLACES = 3
 MONEY_PLACES = 4
 
 
-ALERT_SIN_STOCK = "SIN_STOCK"
+ALERT_AGOTADO = "AGOTADO"
 
 ALERT_BAJO_MINIMO = "BAJO_MINIMO"
 
 ALERT_CUALQUIERA = "CUALQUIERA"
 
 ALERT_LABELS = {
-    ALERT_SIN_STOCK: "Sin stock",
+    ALERT_AGOTADO: "Agotado",
     ALERT_BAJO_MINIMO: "Bajo mínimo",
 }
 
@@ -65,7 +65,7 @@ def compute_alert(
     """Aplica reglas de alerta a un producto activo."""
 
     if cantidad <= ZERO:
-        return ALERT_SIN_STOCK
+        return ALERT_AGOTADO
 
     if stock_minimo is not None and cantidad <= stock_minimo:
         return ALERT_BAJO_MINIMO

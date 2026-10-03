@@ -21,10 +21,10 @@ from PySide6.QtWidgets import (
 from sisalmacen.application.services import AppServices
 from sisalmacen.application.settings import flag
 from sisalmacen.domain.inventory import (
+    ALERT_AGOTADO,
     ALERT_BAJO_MINIMO,
     ALERT_CUALQUIERA,
     ALERT_LABELS,
-    ALERT_SIN_STOCK,
     ProductFilter,
     ProductRecord,
 )
@@ -46,7 +46,7 @@ from sisalmacen.ui.widgets import (
 
 PAGE_SIZE = 50
 _ALERT_COLORS = {
-    ALERT_SIN_STOCK: QColor("#fde2e4"),
+    ALERT_AGOTADO: QColor("#fde2e4"),
     ALERT_BAJO_MINIMO: QColor("#fff3cd"),
 }
 _INACTIVE_COLOR = QColor("#e5e5e2")
@@ -124,6 +124,12 @@ class ProductsPage(QWidget):
         new_button = QPushButton("Nuevo producto")
         new_button.setEnabled("productos.crear" in permisos)
         new_button.clicked.connect(self._new)
+        import_button = secondary_button("Importar CSV")
+        import_button.setEnabled("productos.crear" in permisos)
+        import_button.clicked.connect(self._import_csv)
+        download_template = secondary_button("Descargar plantilla")
+        download_template.setEnabled("productos.ver" in permisos)
+        download_template.clicked.connect(self._download_template)
         edit_button = QPushButton("Editar")
         edit_button.setEnabled("productos.editar" in permisos)
         edit_button.clicked.connect(self._edit)
@@ -145,6 +151,8 @@ class ProductsPage(QWidget):
 
         actions = QHBoxLayout()
         actions.addWidget(new_button)
+        actions.addWidget(import_button)
+        actions.addWidget(download_template)
         actions.addWidget(edit_button)
         actions.addWidget(detail_button)
         actions.addWidget(self._toggle_button)
@@ -344,6 +352,52 @@ class ProductsPage(QWidget):
         else:
             self._services.products.reactivate(record.id)
         self.refresh()
+
+    def _import_csv(self) -> None:
+        """Abre diálogo para importar productos desde CSV."""
+
+        from PySide6.QtWidgets import QFileDialog
+        from sisalmacen.ui.dialogs.csv_import_dialog import CSVImportDialog
+        from sisalmacen.application.csv_export import PRODUCTOS_CSV_HEADERS
+        
+        filename, _ = QFileDialog.getOpenFileName(self, "Importar productos", "", "CSV (*.csv)")
+        if not filename:
+            return
+        try:
+            # Read CSV file
+            with open(filename, "r", encoding="utf-8") as f:
+                csv_content = f.read()
+            
+            # Show preview dialog
+            dialog = CSVImportDialog(csv_content, PRODUCTOS_CSV_HEADERS, parent=self)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            
+            # Import products
+            result = self._services.products.import_csv(csv_content)
+            QMessageBox.information(
+                self, 
+                "Importación completada", 
+                f"Productos creados: {result['created']}\nErrores: {result['errors']}"
+            )
+            self.refresh()
+        except Exception as error:
+            show_error(self, error)
+
+    def _download_template(self) -> None:
+        """Descarga plantilla CSV para productos."""
+
+        from PySide6.QtWidgets import QFileDialog
+        filename, _ = QFileDialog.getSaveFileName(self, "Descargar plantilla", "", "CSV (*.csv)")
+        if not filename:
+            return
+        try:
+            csv_content = self._services.products.get_csv_template()
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(csv_content)
+            QMessageBox.information(self, "Plantilla descargada", f"Plantilla guardada en {filename}")
+        except Exception as error:
+            show_error(self, error)
 
     def _export(self, fmt: str) -> None:
         try:

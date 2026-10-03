@@ -14,8 +14,8 @@ from sisalmacen.domain.errors import (
     ValidationError,
 )
 from sisalmacen.domain.inventory import (
+    ALERT_AGOTADO,
     ALERT_BAJO_MINIMO,
-    ALERT_SIN_STOCK,
     AuditFilter,
     MovementFilter,
     MovementLine,
@@ -280,7 +280,7 @@ def test_alerts_and_dashboard(services, make_product) -> None:  # type: ignore[n
     def codes(alert: str) -> list[str]:
         return [p.codigo for p in services.products.search(ProductFilter(alerta=alert)).items]
 
-    assert codes(ALERT_SIN_STOCK) == ["E-1"]
+    assert codes(ALERT_AGOTADO) == ["E-1"]
     assert codes(ALERT_BAJO_MINIMO) == ["L-1"]
     assert sorted(codes("CUALQUIERA")) == ["E-1", "L-1"]
     assert empty

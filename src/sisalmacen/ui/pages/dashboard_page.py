@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from sisalmacen.application.services import AppServices
 from sisalmacen.application.settings import flag
-from sisalmacen.domain.inventory import ALERT_BAJO_MINIMO, ALERT_SIN_STOCK
+from sisalmacen.domain.inventory import ALERT_AGOTADO, ALERT_BAJO_MINIMO
 from sisalmacen.ui.theme import BRAND_NAME
 from sisalmacen.ui.widgets import build_page_header, fmt_money, secondary_button, show_error
 
@@ -80,10 +80,10 @@ class DashboardPage(QScrollArea):
             self._card("Productos", str(snapshot.total_productos), "Registros totales"),
             self._card("Activos", str(snapshot.productos_activos), "Disponibles para operar"),
             self._card(
-                "Sin stock",
+                "Agotados",
                 str(snapshot.productos_sin_stock),
-                "Productos activos en cero",
-                alert=ALERT_SIN_STOCK,
+                "Productos sin stock",
+                alert=ALERT_AGOTADO,
             ),
             self._card(
                 "Bajo el mínimo",

@@ -154,6 +154,102 @@ class ProductService:
             )
             uow.commit()
 
+    # ----- exportación CSV -----
+
+    def export_csv(self, product_filter: ProductFilter, *, page: int = 1) -> str:
+        """Exporta productos a CSV con filtros aplicados."""
+
+        from sisalmacen.application.csv_export import export_to_csv, PRODUCTOS_CSV_HEADERS
+
+        self._authz.require_permission(self._actor, "productos.ver")
+        with self._uow_factory() as uow:
+            result = uow.products.search(product_filter, page=page, page_size=0)
+
+        rows = []
+        for item in result.items:
+            # Calcular totales desde movimientos
+            entradas_total = 0  # Esto se calcularía desde movimientos
+            salidas_total = 0
+            stock_inicial = item.cantidad - entradas_total + salidas_total
+
+            rows.append({
+                "codigo_producto": item.codigo,
+                "descripcion": item.nombre,
+                "descripcion_adicional": "",
+                "marca": item.marca or "",
+                "categoria": item.categoria,
+                "precio_compra": item.precio_compra,
+                "precio_venta": item.precio_venta,
+                "stock_minimo": item.stock_minimo,
+                "stock_inicial": stock_inicial,
+                "entradas": entradas_total,
+                "salidas": salidas_total,
+                "stock_actual": item.cantidad,
+                "almacen": "",
+                "ubicacion": item.ubicacion or "",
+                "proveedor": item.proveedor or "",
+                "fecha_registro": item.creado_en[:10],
+                "estado": "ACTIVO" if item.activo else "INACTIVO",
+                "observacion": item.observaciones or "",
+            })
+
+        return export_to_csv(PRODUCTOS_CSV_HEADERS, rows)
+
+    def get_csv_template(self) -> str:
+        """Descarga plantilla CSV vacía para importación de productos."""
+
+        from sisalmacen.application.csv_export import export_to_csv, PRODUCTOS_CSV_HEADERS
+
+        self._authz.require_permission(self._actor, "productos.crear")
+        
+        template_row = {header: "" for header in PRODUCTOS_CSV_HEADERS}
+        return export_to_csv(PRODUCTOS_CSV_HEADERS, [template_row])
+
+    def import_csv(self, csv_content: str) -> dict[str, int]:
+        """Importa productos desde contenido CSV.
+        
+        Args:
+            csv_content: Contenido del archivo CSV como string
+            
+        Returns:
+            dict con 'created' y 'errors' counts
+        """
+        from csv import DictReader
+        from io import StringIO
+        from sisalmacen.application.csv_export import PRODUCTOS_CSV_HEADERS
+        
+        self._authz.require_permission(self._actor, "productos.crear")
+        
+        # Parse CSV content
+        content = csv_content.lstrip("\ufeff")
+        reader = DictReader(StringIO(content))
+        
+        created = 0
+        errors = 0
+        
+        for row in reader:
+            try:
+                # Validate required fields
+                if not row.get("codigo_producto") or not row.get("descripcion"):
+                    errors += 1
+                    continue
+                
+                # Create product data
+                product_data = ProductData(
+                    codigo=row.get("codigo_producto", "").strip(),
+                    nombre=row.get("descripcion", "").strip(),
+                    stock_minimo=int(row.get("stock_minimo", 0)) if row.get("stock_minimo") else 0,
+                )
+                
+                # Create product
+                self.create(product_data)
+                created += 1
+            except Exception:
+                errors += 1
+                continue
+        
+        return {"created": created, "errors": errors}
+
     # ----- validaciones -----
 
     def _hide_prices(self, settings: dict[str, str]) -> bool:

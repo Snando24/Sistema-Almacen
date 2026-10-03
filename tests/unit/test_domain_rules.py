@@ -24,8 +24,8 @@ from sisalmacen.domain.importing import (
 )
 
 from sisalmacen.domain.inventory import (
+    ALERT_AGOTADO,
     ALERT_BAJO_MINIMO,
-    ALERT_SIN_STOCK,
     compute_alert,
     decimal_places,
     is_whole,
@@ -38,9 +38,9 @@ D = Decimal
 @pytest.mark.parametrize(
     ("qty", "minimum", "expected"),
     [
-        (D(0), D(5), ALERT_SIN_STOCK),
-        (D(-1), D(5), ALERT_SIN_STOCK),
-        (D(0), None, ALERT_SIN_STOCK),
+        (D(0), D(5), ALERT_AGOTADO),
+        (D(-1), D(5), ALERT_AGOTADO),
+        (D(0), None, ALERT_AGOTADO),
         (D(5), D(5), ALERT_BAJO_MINIMO),  # borde: igual al mínimo
         (D(1), D(5), ALERT_BAJO_MINIMO),
         (D(6), D(5), None),

@@ -15,9 +15,9 @@ from sisalmacen.application.ports import ReportWriterPort, WorkUnit, WorkUnitFac
 from sisalmacen.application.settings import flag
 from sisalmacen.domain.errors import PermissionDenied, ValidationError
 from sisalmacen.domain.inventory import (
+    ALERT_AGOTADO,
     ALERT_BAJO_MINIMO,
     ALERT_LABELS,
-    ALERT_SIN_STOCK,
     ZERO,
     MovementFilter,
     ProductFilter,
@@ -173,7 +173,7 @@ class ReportService:
 
     def _out_of_stock(self, uow: WorkUnit, params: ReportParams) -> ReportData:
         product_filter = ProductFilter(
-            categoria_id=params.categoria_id, estado="ACTIVO", alerta=ALERT_SIN_STOCK
+            categoria_id=params.categoria_id, estado="ACTIVO", alerta=ALERT_AGOTADO
         )
         return self._product_table(uow, "sin_stock", "Productos sin stock", product_filter)
 

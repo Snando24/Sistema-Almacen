@@ -18,9 +18,9 @@ from sqlalchemy.orm import Session
 
 
 from sisalmacen.domain.inventory import (
+    ALERT_AGOTADO,
     ALERT_BAJO_MINIMO,
     ALERT_CUALQUIERA,
-    ALERT_SIN_STOCK,
     ZERO,
     Page,
     ProductData,
@@ -226,7 +226,7 @@ def alert_conditions() -> dict[str, Any]:
     )
 
     conditions: dict[str, Any] = {
-        ALERT_SIN_STOCK: out_of_stock,
+        ALERT_AGOTADO: out_of_stock,
         ALERT_BAJO_MINIMO: low,
         ALERT_CUALQUIERA: or_(out_of_stock, low),
     }
