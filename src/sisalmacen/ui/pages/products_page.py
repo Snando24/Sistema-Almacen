@@ -6,6 +6,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -25,12 +27,14 @@ from sisalmacen.domain.inventory import (
     ALERT_BAJO_MINIMO,
     ALERT_CUALQUIERA,
     ALERT_LABELS,
+    ProductData,
     ProductFilter,
     ProductRecord,
     normalize_alert_code,
 )
 from sisalmacen.ui.dialogs.product_dialog import ProductDetailDialog, ProductDialog, fill_combo
 from sisalmacen.ui.exporting import export_report
+from sisalmacen.ui.theme import current_theme_mode, THEME_DARK
 from sisalmacen.ui.widgets import (
     TableModel,
     build_page_header,
@@ -46,11 +50,25 @@ from sisalmacen.ui.widgets import (
 )
 
 PAGE_SIZE = 50
-_ALERT_COLORS = {
-    ALERT_AGOTADO: QColor("#fde2e4"),
-    ALERT_BAJO_MINIMO: QColor("#fff3cd"),
-}
-_INACTIVE_COLOR = QColor("#e5e5e2")
+
+
+def _get_alert_colors() -> dict[str, QColor]:
+    """Devuelve colores de alerta adaptados al tema actual (claro/oscuro)."""
+    is_dark = current_theme_mode() == THEME_DARK
+    return {
+        ALERT_AGOTADO: QColor("#7f1d1a") if is_dark else QColor("#fde2e4"),  # Rojo oscuro en oscuro, rojo claro en claro
+        ALERT_BAJO_MINIMO: QColor("#713f12") if is_dark else QColor("#fff3cd"),  # Naranja oscuro en oscuro, amarillo claro en claro
+    }
+
+
+def _get_inactive_color() -> QColor:
+    """Devuelve el color para productos inactivos adaptado al tema actual."""
+    is_dark = current_theme_mode() == THEME_DARK
+    return QColor("#3a4248") if is_dark else QColor("#e5e5e2")
+
+
+_ALERT_COLORS = _get_alert_colors()
+_INACTIVE_COLOR = _get_inactive_color()
 
 
 class ProductsPage(QWidget):
@@ -129,6 +147,9 @@ class ProductsPage(QWidget):
         download_template = secondary_button("Descargar plantilla")
         download_template.setEnabled("productos.ver" in permisos)
         download_template.clicked.connect(self._download_template)
+        set_minimum_button = secondary_button("Establecer stock mínimo")
+        set_minimum_button.setEnabled("productos.editar" in permisos)
+        set_minimum_button.clicked.connect(self._set_bulk_minimum)
         edit_button = QPushButton("Editar")
         edit_button.setEnabled("productos.editar" in permisos)
         edit_button.clicked.connect(self._edit)
@@ -152,6 +173,7 @@ class ProductsPage(QWidget):
         actions.addWidget(new_button)
         actions.addWidget(import_button)
         actions.addWidget(download_template)
+        actions.addWidget(set_minimum_button)
         actions.addWidget(edit_button)
         actions.addWidget(detail_button)
         actions.addWidget(self._toggle_button)
@@ -241,6 +263,9 @@ class ProductsPage(QWidget):
         self._pages = result.pages
         rows: list[list[str]] = []
         colors: list[QColor | None] = []
+        # Recalcular colores según el tema actual
+        alert_colors = _get_alert_colors()
+        inactive_color = _get_inactive_color()
         for item in result.items:
             alert = item.alert()
             # Columnas simplificadas: Código, Descripción, Stock, Mínimo, Estado, Alerta
@@ -254,7 +279,7 @@ class ProductsPage(QWidget):
             ]
             rows.append(row)
             colors.append(
-                _ALERT_COLORS.get(alert or "") or (None if item.activo else _INACTIVE_COLOR)
+                alert_colors.get(alert or "") or (None if item.activo else inactive_color)
             )
         self._model.set_rows(rows, payloads=list(result.items), colors=colors)
         self._status.setText(
@@ -391,3 +416,116 @@ class ProductsPage(QWidget):
             show_error(self, error)
             return
         export_report(self, self._services, data, fmt)
+
+    @guarded
+    def _set_bulk_minimum(self) -> None:
+        """Abre diálogo para establecer stock mínimo de forma masiva."""
+        dialog = BulkMinimumDialog(self._services, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
+
+
+class BulkMinimumDialog(QDialog):
+    """Diálogo para establecer stock mínimo de forma masiva/general para productos."""
+
+    def __init__(self, services: AppServices, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Establecer stock mínimo")
+        self.setMinimumWidth(400)
+        self._services = services
+        self._minimum_value = QLineEdit()
+
+        form = QFormLayout()
+        form.setHorizontalSpacing(16)
+        form.setVerticalSpacing(10)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        
+        form.addRow(
+            "Stock mínimo para TODOS los productos",
+            self._minimum_value
+        )
+        
+        info_label = QLabel(
+            "Esta acción establecerá el stock mínimo indicado para TODOS los productos activos.\n"
+            "Los productos inactivos no serán modificados."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #666; font-size: 11px;")
+        form.addRow(info_label)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Aplicar")
+        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        ok_button.clicked.connect(self._apply)
+        cancel = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel.setText("Cancelar")
+        cancel.setProperty("variant", "secondary")
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def _apply(self) -> None:
+        try:
+            minimum_text = self._minimum_value.text().strip()
+            if not minimum_text:
+                QMessageBox.warning(
+                    self,
+                    "Valor requerido",
+                    "Por favor ingrese un valor para el stock mínimo.",
+                )
+                return
+            
+            minimum_value = parse_decimal_input(minimum_text, "Stock mínimo")
+            
+            # Confirmar antes de aplicar
+            answer = QMessageBox.question(
+                self,
+                "Confirmar",
+                f"¿Establecer el stock mínimo en {minimum_value} para TODOS los productos activos?\n\n"
+                f"Esta acción no se puede deshacer.",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Ok:
+                return
+            
+            # Obtener todos los productos activos
+            result = self._services.products.search(
+                ProductFilter(estado="ACTIVO"),
+                page=1,
+                page_size=50000,
+            )
+            
+            # Actualizar cada producto
+            updated_count = 0
+            for product in result.items:
+                data = ProductData(
+                    codigo=product.codigo,
+                    nombre=product.nombre,
+                    categoria_id=product.categoria_id,
+                    unidad_id=product.unidad_id,
+                    codigo_barras=product.codigo_barras,
+                    descripcion=product.descripcion,
+                    marca_id=product.marca_id,
+                    proveedor_id=product.proveedor_id,
+                    ubicacion_id=product.ubicacion_id,
+                    precio_compra=product.precio_compra,
+                    precio_venta=product.precio_venta,
+                    stock_minimo=minimum_value,
+                    observaciones=product.observaciones,
+                )
+                self._services.products.update(product.id, data)
+                updated_count += 1
+            
+            QMessageBox.information(
+                self,
+                "Stock mínimo actualizado",
+                f"Se actualizó el stock mínimo para {updated_count} producto(s).",
+            )
+            self.accept()
+        except Exception as error:
+            show_error(self, error)
