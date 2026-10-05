@@ -324,24 +324,6 @@ class ImportPage(QWidget):
 
         self._discard_button.clicked.connect(self._discard)
 
-        buttons = QHBoxLayout()
-
-        buttons.setContentsMargins(0, 4, 0, 4)  # Espaciado vertical compacto
-
-        buttons.setSpacing(6)  # Espaciado entre botones
-
-        buttons.addWidget(self._validate_button)
-
-        buttons.addWidget(self._errors_button)
-
-        buttons.addStretch(1)
-
-        buttons.addWidget(self._discard_button)
-
-        buttons.addWidget(self._apply_button)
-
-
-
         self._progress = QProgressBar()
 
         self._progress.setVisible(False)
@@ -387,92 +369,99 @@ class ImportPage(QWidget):
 
         preview_box = QGroupBox("Previsualización de validación")
         preview_box.setLayout(preview_layout)
-        # NO establecer altura mínima - dejar que se expanda naturalmente con el espacio disponible
         preview_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        left_buttons = QHBoxLayout()
+        left_buttons.setContentsMargins(0, 4, 0, 0)
+        left_buttons.setSpacing(6)
+        left_buttons.addWidget(self._validate_button)
+        left_buttons.addWidget(self._errors_button)
+        left_buttons.addStretch(1)
+
+        left_panel = QWidget()
+        left_layout = QVBoxLayout()
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+        left_layout.addWidget(options_box)
+        left_layout.addLayout(left_buttons)
+        left_panel.setLayout(left_layout)
+        left_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+
+        right_buttons = QHBoxLayout()
+        right_buttons.setContentsMargins(0, 4, 0, 0)
+        right_buttons.setSpacing(6)
+        right_buttons.addStretch(1)
+        right_buttons.addWidget(self._discard_button)
+        right_buttons.addWidget(self._apply_button)
+
+        right_panel = QWidget()
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)
+        right_layout.addWidget(preview_box)
+        right_layout.addLayout(right_buttons)
+        right_panel.setLayout(right_layout)
+        right_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        split = QHBoxLayout()
+        split.setContentsMargins(0, 0, 0, 0)
+        split.setSpacing(10)
+        split.addWidget(left_panel, 1)
+        split.addWidget(right_panel, 2)
 
         widget = QWidget()
 
         layout = QVBoxLayout()
 
-        layout.setContentsMargins(0, 0, 0, 0)  # Reducir márgenes innecesarios
-
-        layout.setSpacing(4)  # Espaciado reducido entre secciones
-
-        layout.addWidget(options_box)
-
-        layout.addLayout(buttons)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
 
         layout.addWidget(self._progress)
-
-        layout.addWidget(preview_box, 1)  # preview_box se expande para llenar espacio disponible
+        layout.addLayout(split, 1)
 
         widget.setLayout(layout)
-
-        # Permitir que el widget se expanda completamente
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         return widget
 
+
+    def _build_history_tab(self) -> QWidget:
         self._history_model = TableModel(
-
             [
-
                 "N.º",
-
                 "Archivo",
-
                 "Inicio",
-
                 "Modo",
-
                 "Estado",
-
                 "Filas",
-
                 "Con error",
-
                 "Insertados",
-
                 "Actualizados",
-
                 "Rechazados",
-
             ],
-
             right_aligned={5, 6, 7, 8, 9},
-
         )
 
         self._history_table = make_table(self._history_model)
 
         errors_button = secondary_button("Ver errores")
-
         errors_button.clicked.connect(self._show_history_errors)
 
         refresh_button = secondary_button("Actualizar")
-
         refresh_button.clicked.connect(self._refresh_history)
 
         bar = QHBoxLayout()
-
         bar.addWidget(errors_button)
-
         bar.addWidget(refresh_button)
-
         bar.addStretch(1)
 
         widget = QWidget()
-
         layout = QVBoxLayout()
-
         layout.addLayout(bar)
-
         layout.addWidget(self._history_table, 1)
-
         widget.setLayout(layout)
 
         return widget
-
 
 
     # ----- estado -----

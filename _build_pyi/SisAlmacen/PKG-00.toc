@@ -35,28 +35,22 @@
    '2\\SisAlmacen\\_build_pyi\\SisAlmacen\\localpycs\\pyimod04_pywin32.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
    'PYSOURCE'),
   ('pyi_rth_inspect',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
    'PYSOURCE'),
   ('pyi_rth_pyside6',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pyside6.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pyside6.py',
    'PYSOURCE'),
   ('pyi_rth_pkgutil',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
    'PYSOURCE'),
   ('pyi_rth_multiprocessing',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('pyi_rth_setuptools',
-   'C:\\Users\\andy_\\Downloads\\SisAlmacen '
-   '2\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_setuptools.py',
+   'C:\\Users\\andy_\\Downloads\\SisAlmacen\\SisAlmacen\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_setuptools.py',
    'PYSOURCE'),
   ('main',
    'C:\\Users\\andy_\\Downloads\\SisAlmacen '

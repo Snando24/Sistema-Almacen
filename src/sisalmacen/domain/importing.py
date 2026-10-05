@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 MODES = ("INSERTAR", "ACTUALIZAR", "INSERTAR_ACTUALIZAR")
@@ -15,7 +16,27 @@ ACTION_ERROR = "ERROR"
 
 CLEAR_TOKEN = "[BORRAR]"  # noqa: S105
 
-COLUMNS = (
+
+class FileType(Enum):
+    PRODUCTOS = "productos"
+    MOVIMIENTOS = "movimientos"
+    DESCONOCIDO = "desconocido"
+
+
+def detect_file_type(headers: list[str]) -> FileType:
+    """Detecta si el CSV representa productos o movimientos por sus cabeceras."""
+
+    normalized = {header.strip().lower().replace("-", "_").replace(" ", "_") for header in headers}
+    if "tipo_movimiento" in normalized:
+        return FileType.MOVIMIENTOS
+    if "codigo_producto" in normalized or "descripcion" in normalized:
+        return FileType.PRODUCTOS
+    if "nombre" in normalized or "categoria" in normalized:
+        return FileType.PRODUCTOS
+    return FileType.DESCONOCIDO
+
+
+COLUMNS_PRODUCTOS = (
     "codigo",
     "nombre",
     "categoria",
@@ -33,7 +54,22 @@ COLUMNS = (
     "estado",
     "observaciones",
 )
+COLUMNS_MOVIMIENTOS = (
+    "tipo_movimiento",
+    "fecha",
+    "codigo_producto",
+    "descripcion",
+    "cantidad",
+    "um",
+    "documento",
+    "almacen",
+    "ubicacion",
+    "proveedor",
+    "observacion",
+)
+COLUMNS = COLUMNS_PRODUCTOS
 REQUIRED_FOR_INSERT = ("nombre", "categoria", "unidad")
+REQUIRED_FOR_MOVEMENT = ("tipo_movimiento", "fecha", "codigo_producto", "cantidad", "um")
 
 
 @dataclass(frozen=True)
@@ -54,6 +90,7 @@ class ImportOptions:
     create_missing_catalogs: bool = False
     apply_stock: bool = False
     skip_error_rows: bool = False
+    file_type: FileType = FileType.DESCONOCIDO
 
 
 @dataclass(frozen=True)

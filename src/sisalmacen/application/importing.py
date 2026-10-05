@@ -170,7 +170,9 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
     seen_codes: set[str],
     seen_barcodes: dict[str, str],
 ) -> RowResult:
-    code = raw.get("codigo", "").strip()
+    is_movement_file = options.file_type == FileType.MOVIMIENTOS
+    code_key = "codigo_producto" if is_movement_file else "codigo"
+    code = raw.get(code_key, raw.get("codigo", "")).strip()
     result = RowResult(nro_fila=number, codigo=code, accion=ACTION_ERROR, raw=raw)
     errors = result.errors
 
@@ -200,6 +202,33 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
 
     def cell(column: str) -> str:
         return raw.get(column, "").strip()
+
+    if is_movement_file:
+        for column, label in (
+            ("tipo_movimiento", "tipo_movimiento"),
+            ("fecha", "fecha"),
+            ("codigo_producto", "codigo_producto"),
+            ("cantidad", "cantidad"),
+            ("um", "um"),
+        ):
+            text = cell(column)
+            if not text:
+                fail("E03", column, f"El campo {label} es obligatorio.")
+                continue
+            if column == "cantidad":
+                try:
+                    parse_decimal(text, options.decimal_separator)
+                except InvalidOperation:
+                    fail("E05", column, f"Valor numérico inválido: '{text}'.")
+            elif column == "tipo_movimiento":
+                values[column] = text
+        if not existing:
+            fail("E21", code_key, "El producto no existe y el movimiento no puede validarse.")
+        if errors:
+            return result
+        result.accion = ACTION_NO_CHANGE
+        result.values = values
+        return result
 
     # texto libre
     for column, limit, required in (

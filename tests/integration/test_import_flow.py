@@ -171,6 +171,25 @@ def test_legacy_header_update_without_unit_keeps_existing_unit(
     assert (preview.actualizables, preview.sin_cambios, preview.errores) == (1, 1, 0)
 
 
+def test_movement_csv_uses_codigo_producto_for_validation(services, tmp_path: Path, make_product) -> None:  # type: ignore[no-untyped-def]
+
+    make_product("P-0001")
+
+    csv_path = tmp_path / "movimientos.csv"
+    csv_path.write_text(
+        "tipo_movimiento,fecha,codigo_producto,descripcion,cantidad,um,documento,almacen,ubicacion,proveedor,observacion\n"
+        "ENTRADA,2024-03-02,P-0001,Producto de prueba,2,UND,INV-001,General,,Proveedor,Observación\n",
+        encoding="utf-8",
+    )
+
+    preview = services.imports.validate(csv_path, ImportOptions())
+
+    assert preview.total == 1
+    assert preview.errores == 0
+    assert preview.rows[0].codigo == "P-0001"
+    assert preview.rows[0].accion in {"INSERTAR", "ACTUALIZAR", "SIN_CAMBIOS"}
+
+
 def test_preview_becomes_stale_when_data_changes(
     services, project_root: Path, make_product
 ) -> None:  # type: ignore[no-untyped-def]
