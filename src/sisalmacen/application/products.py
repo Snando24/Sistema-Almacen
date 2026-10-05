@@ -50,6 +50,7 @@ class ProductService:
     ) -> Page[ProductRecord]:
         self._authz.require_permission(self._actor, "productos.ver")
         with self._uow_factory() as uow:
+            settings = uow.settings.get_all()
             result = uow.products.search(product_filter, page=page, page_size=page_size)
         if self._hide_prices(settings):
             return Page(

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 
 
+from pathlib import Path
+
 from PySide6.QtCore import Signal
 
 from PySide6.QtWidgets import (
@@ -38,6 +40,8 @@ from PySide6.QtWidgets import (
 
 from sisalmacen.application.services import AppServices
 
+from sisalmacen.domain.errors import DomainError
+
 from sisalmacen.domain.inventory import MovementFilter, MovementRow
 
 from sisalmacen.ui.dialogs.movement_dialog import AdjustDialog, MovementDialog
@@ -57,6 +61,8 @@ from sisalmacen.ui.widgets import (
     make_table,
 
     parse_date_input,
+
+    Worker,
 
     secondary_button,
 
@@ -93,6 +99,8 @@ class MovementsPage(QWidget):
         self._page = 1
 
         self._pages = 1
+
+        self._worker: Worker | None = None
 
 
 
@@ -158,13 +166,18 @@ class MovementsPage(QWidget):
 
         import_button = secondary_button("Importar CSV")
 
-        import_button.setEnabled("movimientos.entrada" in permisos)
+        import_button.setEnabled(
+            any(
+                permiso in permisos
+                for permiso in ("movimientos.entrada", "movimientos.salida", "movimientos.ajuste")
+            )
+        )
 
         import_button.clicked.connect(self._import_csv)
 
         download_template = secondary_button("Descargar plantilla")
 
-        download_template.setEnabled("movimientos.ver" in permisos)
+        download_template.setEnabled("inventario.ver" in permisos)
 
         download_template.clicked.connect(self._download_template)
 
@@ -230,11 +243,11 @@ class MovementsPage(QWidget):
 
 
 
-        self._prev = secondary_button("? Anterior")
+        self._prev = secondary_button("← Anterior")
 
         self._prev.clicked.connect(self._previous_page)
 
-        self._next = secondary_button("Siguiente ?")
+        self._next = secondary_button("Siguiente →")
 
         self._next.clicked.connect(self._next_page)
 
@@ -495,34 +508,17 @@ class MovementsPage(QWidget):
     def _import_csv(self) -> None:
         """Abre diálogo para importar movimientos desde CSV."""
 
-        from PySide6.QtWidgets import QFileDialog, QDialog
-        from sisalmacen.ui.dialogs.csv_import_dialog import CSVImportDialog
-        from sisalmacen.application.csv_export import MOVIMIENTOS_CSV_HEADERS
+        from PySide6.QtWidgets import QFileDialog
         
         filename, _ = QFileDialog.getOpenFileName(self, "Importar movimientos", "", "CSV (*.csv)")
         if not filename:
             return
-        try:
-            # Read CSV file
-            with open(filename, "r", encoding="utf-8") as f:
-                csv_content = f.read()
-            
-            # Show preview dialog
-            dialog = CSVImportDialog(csv_content, MOVIMIENTOS_CSV_HEADERS, parent=self)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            
-            # Import movements
-            result = self._services.movements.import_csv(csv_content)
-            QMessageBox.information(
-                self, 
-                "Importación completada", 
-                f"Movimientos creados: {result['created']}\nErrores: {result['errors']}"
-            )
-            self.refresh()
-            self.changed.emit()
-        except Exception as error:
-            show_error(self, error)
+        self._run_worker(
+            lambda progress: self._services.movements.import_csv_file(
+                Path(filename), progress=progress
+            ),
+            self._on_import_finished,
+        )
 
     def _download_template(self) -> None:
         """Descarga plantilla CSV para movimientos."""
@@ -538,6 +534,41 @@ class MovementsPage(QWidget):
             QMessageBox.information(self, "Plantilla descargada", f"Plantilla guardada en {filename}")
         except Exception as error:
             show_error(self, error)
+
+    def _run_worker(self, task, on_success) -> None:  # type: ignore[no-untyped-def]
+        if self._worker is not None:
+            QMessageBox.information(self, "Movimientos", "Ya hay una operación en curso.")
+            return
+        self._worker = Worker(task)
+        self._worker.succeeded.connect(on_success)
+        self._worker.failed.connect(self._on_worker_failed)
+        self._worker.finished.connect(self._release_worker)
+        self.setEnabled(False)
+        self._worker.start()
+
+    def _release_worker(self) -> None:
+        self.setEnabled(True)
+        if self._worker is not None:
+            self._worker.deleteLater()
+        self._worker = None
+
+    def _on_worker_failed(self, error: object) -> None:
+        if isinstance(error, BaseException):
+            if isinstance(error, DomainError):
+                show_error(self, error)
+                return
+            show_error(self, error)
+
+    def _on_import_finished(self, result: object) -> None:
+        if not isinstance(result, dict):
+            return
+        QMessageBox.information(
+            self,
+            "Importación completada",
+            f"Movimientos creados: {result.get('created', 0)}\nErrores: {result.get('errors', 0)}",
+        )
+        self.refresh()
+        self.changed.emit()
 
     @guarded
 

@@ -6,11 +6,19 @@ from __future__ import annotations
 
 
 
+import csv
+
+import io
+
+
 import re
+from collections.abc import Callable
+
 
 from datetime import date, datetime
 
-from decimal import Decimal
+
+from pathlib import Path
 
 
 
@@ -91,6 +99,18 @@ _ACTION_BY_NATURE = {
 }
 
 _TYPE_CODE = re.compile(r"^[A-Z0-9_]{2,30}$")
+_CSV_DELIMITERS = (",", ";", "\t", "|")
+_MOVEMENT_KIND_ALIASES = {
+    "ENTRADA": "ENT_COMPRA",
+    "INGRESO": "ENT_COMPRA",
+    "COMPRA": "ENT_COMPRA",
+    "SALIDA": "SAL_VENTA",
+    "VENTA": "SAL_VENTA",
+    "AJUSTE_POSITIVO": "AJ_POSITIVO",
+    "AJUSTE_POS": "AJ_POSITIVO",
+    "AJUSTE_NEGATIVO": "AJ_NEGATIVO",
+    "AJUSTE_NEG": "AJ_NEGATIVO",
+}
 
 
 
@@ -709,7 +729,7 @@ class MovementService:
 
         from sisalmacen.application.csv_export import export_to_csv, MOVIMIENTOS_CSV_HEADERS
 
-        self._authz.require_permission(self._actor, "movimientos.ver")
+        self._authz.require_permission(self._actor, "inventario.ver")
         with self._uow_factory() as uow:
             result = uow.movements.search(movement_filter, page=1, page_size=0)
 
@@ -736,12 +756,29 @@ class MovementService:
 
         from sisalmacen.application.csv_export import export_to_csv, MOVIMIENTOS_CSV_HEADERS
 
-        self._authz.require_permission(self._actor, "movimientos.crear")
+        self._authz.require_permission(self._actor, "inventario.ver")
         
         template_row = {header: "" for header in MOVIMIENTOS_CSV_HEADERS}
         return export_to_csv(MOVIMIENTOS_CSV_HEADERS, [template_row])
 
-    def import_csv(self, csv_content: str) -> dict[str, int]:
+    def import_csv_file(
+        self,
+        path: Path,
+        *,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> dict[str, int]:
+        """Importa movimientos desde un archivo CSV."""
+
+        raw = path.read_bytes()
+        text = _decode_csv_bytes(raw)
+        return self.import_csv(text, progress=progress)
+
+    def import_csv(
+        self,
+        csv_content: str,
+        *,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> dict[str, int]:
         """Importa movimientos desde contenido CSV.
         
         Args:
@@ -750,62 +787,57 @@ class MovementService:
         Returns:
             dict con 'created' y 'errors' counts
         """
-        from csv import DictReader
-        from io import StringIO
-        from sisalmacen.application.csv_export import MOVIMIENTOS_CSV_HEADERS
-        from sisalmacen.domain.inventory import MovementLine
-        from datetime import datetime
-        from decimal import Decimal
-        
-        self._authz.require_permission(self._actor, "movimientos.entrada")
-        
-        # Parse CSV content
+        self._authz.require_permission(self._actor, "inventario.ver")
+
         content = csv_content.lstrip("\ufeff")
-        reader = DictReader(StringIO(content))
-        
+        delimiter = _detect_csv_delimiter(content)
+        reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
+        if not reader.fieldnames:
+            raise ValidationError("El archivo CSV está vacío.", code="CSV_VACIO")
+
+        rows = list(reader)
         created = 0
         errors = 0
-        
-        for row in reader:
+        total = len(rows)
+        if total == 0:
+            raise ValidationError("El archivo no contiene filas de datos.", code="CSV_VACIO")
+
+        for index, row in enumerate(rows, start=1):
             try:
-                # Validate required fields
                 codigo = row.get("codigo_producto", "").strip()
-                tipo = row.get("tipo_movimiento", "").upper().strip()
-                
-                if not codigo or not tipo:
-                    errors += 1
-                    continue
-                
-                # Map tipo to tipo_codigo
-                tipo_codigo = "COMPRA" if tipo == "ENTRADA" else "VENTA" if tipo == "SALIDA" else None
-                if not tipo_codigo:
-                    errors += 1
-                    continue
-                
-                # Get product
-                product = self._uow_factory().productos.by_codigo(codigo)
-                if not product:
-                    errors += 1
-                    continue
-                
-                # Parse cantidad
-                try:
-                    cantidad = Decimal(row.get("cantidad", "1").replace(",", "."))
-                    if cantidad <= 0:
-                        errors += 1
-                        continue
-                except:
-                    errors += 1
-                    continue
-                
-                # Parse fecha
-                try:
-                    fecha = datetime.fromisoformat(row.get("fecha", "")).date()
-                except:
-                    fecha = datetime.now().date()
-                
-                # Create movement request
-                from sisalmacen.domain.inventory import MovementRequest
+                tipo = row.get("tipo_movimiento", "").strip()
+                if not codigo:
+                    raise ValidationError(
+                        "El código de producto es obligatorio.", code="CSV_CODIGO_REQUERIDO"
+                    )
+                if not tipo:
+                    raise ValidationError(
+                        "El tipo de movimiento es obligatorio.", code="CSV_TIPO_REQUERIDO"
+                    )
+                cantidad_text = row.get("cantidad", "").strip()
+                if not cantidad_text:
+                    raise ValidationError(
+                        "La cantidad es obligatoria.", code="CSV_CANTIDAD_REQUERIDA"
+                    )
+                cantidad = Decimal(cantidad_text.replace(",", "."))
+                if cantidad <= ZERO:
+                    raise ValidationError(
+                        "La cantidad debe ser mayor que cero.", code="CSV_CANTIDAD_INVALIDA"
+                    )
+                fecha_text = row.get("fecha", "").strip()
+                fecha = datetime.fromisoformat(fecha_text).date() if fecha_text else today_local()
+                with self._uow_factory() as uow:
+                    product = uow.products.get_by_code(codigo)
+                    if product is None:
+                        raise NotFoundError(
+                            f"No existe el producto {codigo}.", code="PRODUCTO_NO_ENCONTRADO"
+                        )
+                    tipo_codigo = _resolve_movement_type_code(uow, tipo)
+                if tipo_codigo is None:
+                    raise ValidationError(
+                        f"Tipo de movimiento no reconocido: {tipo}.",
+                        code="TIPO_MOVIMIENTO_INVALIDO",
+                    )
                 request = MovementRequest(
                     tipo_codigo=tipo_codigo,
                     fecha=fecha,
@@ -813,14 +845,13 @@ class MovementService:
                     documento_referencia=row.get("documento", "").strip() or None,
                     observacion=row.get("observacion", "").strip() or None,
                 )
-                
-                # Register movement
                 self.register(request)
                 created += 1
             except Exception:
                 errors += 1
-                continue
-        
+            if progress is not None and (index % 100 == 0 or index == total):
+                progress(index, total)
+
         return {"created": created, "errors": errors}
 
 
@@ -833,4 +864,36 @@ def _find_type(uow: WorkUnit, type_id: int) -> MovementType:
             return movement_type
 
     raise NotFoundError("No se encontró el tipo de movimiento.", code="TIPO_NO_ENCONTRADO")
+
+
+def _decode_csv_bytes(raw: bytes) -> str:
+    if not raw.strip():
+        raise ValidationError("El archivo CSV está vacío.", code="CSV_VACIO")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
+
+
+def _detect_csv_delimiter(text: str) -> str:
+    first_line = next((line for line in text.splitlines() if line.strip()), "")
+    counts = {delimiter: first_line.count(delimiter) for delimiter in _CSV_DELIMITERS}
+    best = max(counts, key=counts.get)
+    return best if counts[best] > 0 else ","
+
+
+def _resolve_movement_type_code(uow: WorkUnit, raw_type: str) -> str | None:
+    normalized = raw_type.strip().upper().replace(" ", "_").replace("-", "_")
+    movement_types = uow.movements.list_types(include_inactive=False)
+    by_code = {movement_type.codigo.upper(): movement_type.codigo for movement_type in movement_types}
+    if normalized in by_code:
+        return by_code[normalized]
+    alias = _MOVEMENT_KIND_ALIASES.get(normalized)
+    if alias and alias in by_code:
+        return by_code[alias]
+    by_name = {
+        movement_type.nombre.strip().upper().replace(" ", "_").replace("-", "_"): movement_type.codigo
+        for movement_type in movement_types
+    }
+    return by_name.get(normalized)
 

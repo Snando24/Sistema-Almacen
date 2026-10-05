@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 
 from sisalmacen.domain.auth import DashboardSnapshot
+from sisalmacen.domain.inventory import ALERT_AGOTADO, ALERT_BAJO_MINIMO
 
 from sisalmacen.domain.importing import (
 
@@ -602,9 +603,9 @@ def build_dashboard_snapshot(session: Session) -> DashboardSnapshot:
 
         backup_carpeta=config.get("backup.carpeta", ""),
 
-        productos_sin_stock=count_products(Producto.activo == 1, alerts["SIN_STOCK"]),
+        productos_sin_stock=count_products(Producto.activo == 1, alerts[ALERT_AGOTADO]),
 
-        productos_bajo_minimo=count_products(Producto.activo == 1, alerts["BAJO_MINIMO"]),
+        productos_bajo_minimo=count_products(Producto.activo == 1, alerts[ALERT_BAJO_MINIMO]),
 
         entradas_hoy=movements_today("ENTRADA"),
 

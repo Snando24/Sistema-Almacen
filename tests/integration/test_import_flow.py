@@ -1,1 +1,297 @@
-"""Importación CSV de extremo a extremo con los archivos de samples/."""from __future__ import annotationsfrom decimal import Decimalfrom pathlib import Pathimport pytestfrom sisalmacen.application.movements import MovementServicefrom sisalmacen.domain.errors import ConflictError, ValidationErrorfrom sisalmacen.domain.importing import ImportOptionsfrom sisalmacen.domain.inventory import MovementFilter, ProductFilterD = Decimaldef _codes(preview) -> set[str]:  # type: ignore[no-untyped-def]    return {error.code for row in preview.rows for error in row.errors}def test_sample_errors_file_reports_e01_to_e09(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]    services.catalogs.create("categoria", {"nombre": "Ferretería"})    preview = services.imports.validate(        project_root / "samples" / "productos_con_errores.csv", ImportOptions()    )    assert _codes(preview) == {f"E0{n}" for n in range(1, 10)}    assert preview.total == 10    assert preview.errores == 9    assert preview.nuevas == 1def test_errors_block_application_and_nothing_is_written(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]    services.catalogs.create("categoria", {"nombre": "Ferretería"})    preview = services.imports.validate(        project_root / "samples" / "productos_con_errores.csv", ImportOptions()    )    with pytest.raises(ValidationError) as error:        services.imports.apply(preview.importacion_id, ImportOptions())    assert error.value.code == "CSV_CON_ERRORES"    assert services.products.search(ProductFilter(estado=None)).total == 0    report = services.imports.error_report(preview.importacion_id)    assert report[0] == ["fila", "codigo", "columna", "error_codigo", "mensaje", "valor_original"]    assert len(report) == 10  # encabezado + 9 erroresdef test_valid_sample_imports_with_missing_catalogs(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]    options = ImportOptions(create_missing_catalogs=True)    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)    assert (preview.nuevas, preview.errores) == (5, 0)    result = services.imports.apply(preview.importacion_id, options)    assert result.insertados == 5    assert services.products.search(ProductFilter(estado=None)).total == 5    assert {c["nombre"] for c in services.catalogs.list_entries("categoria")} >= {        "Ferretería",        "Pinturas",    }    inactive = services.products.search(ProductFilter(estado="INACTIVO")).items    assert [p.codigo for p in inactive] == ["P-0005"]    assert services.movements.verify_consistency() == []def test_apply_stock_creates_linked_movements(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]    options = ImportOptions(create_missing_catalogs=True, apply_stock=True, skip_error_rows=True)    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)    # P-0005 está INACTIVO con stock: E23 (doc 06).    assert _codes(preview) == {"E23"}    result = services.imports.apply(preview.importacion_id, options)    assert (result.insertados, result.rechazados, result.movimientos) == (4, 1, 1)    stock = {p.codigo: p.cantidad for p in services.products.search(ProductFilter()).items}    assert stock == {"P-0001": D("500"), "P-0002": D("120.5"), "P-0003": D("12"), "P-0004": D("0")}    history = services.movements.history(MovementFilter(tipo_codigo="ENT_INICIAL")).items    assert len(history) == 3  # P-0004 con stock 0 no genera línea    assert all(row.importacion_id == preview.importacion_id for row in history)    assert services.movements.verify_consistency() == []def test_update_mode_and_borrar_token(services, project_root: Path, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]    options = ImportOptions(create_missing_catalogs=True)    first = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)    services.imports.apply(first.importacion_id, options)    update = tmp_path / "update.csv"    update.write_text(        "codigo,nombre,descripcion\nP-0001,Tornillo renombrado,[BORRAR]\nP-0002,,\n",        encoding="utf-8",    )    update_options = ImportOptions(mode="ACTUALIZAR")    preview = services.imports.validate(update, update_options)    assert (preview.actualizables, preview.sin_cambios, preview.errores) == (1, 1, 0)    services.imports.apply(preview.importacion_id, update_options)    products = {p.codigo: p for p in services.products.search(ProductFilter(estado=None)).items}    assert products["P-0001"].nombre == "Tornillo renombrado"    assert products["P-0001"].descripcion is None    assert products["P-0002"].nombre == "Cable eléctrico 2.5 mm"def test_preview_becomes_stale_when_data_changes(    services, project_root: Path, make_product) -> None:  # type: ignore[no-untyped-def]    options = ImportOptions(create_missing_catalogs=True)    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)    make_product("P-0001")  # alguien crea el mismo código antes de confirmar    with pytest.raises(ConflictError) as error:        services.imports.apply(preview.importacion_id, options)    assert error.value.code == "IMPORT_DESACTUALIZADA"    assert services.products.search(ProductFilter(estado=None)).total == 1  # nada se aplicódef test_failure_mid_apply_leaves_database_untouched(  # type: ignore[no-untyped-def]    services, project_root: Path, monkeypatch) -> None:    options = ImportOptions(create_missing_catalogs=True, apply_stock=True, skip_error_rows=True)    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)    def explode(*_args: object, **_kwargs: object) -> None:        raise RuntimeError("fallo simulado")    monkeypatch.setattr(MovementService, "register_in", explode)    with pytest.raises(RuntimeError):        services.imports.apply(preview.importacion_id, options)    assert services.products.search(ProductFilter(estado=None)).total == 0    categories = {entry["nombre"] for entry in services.catalogs.list_entries("categoria")}    assert "Pinturas" not in categories  # los catálogos creados también se revierten    history = services.imports.history()    assert history[0].estado == "FALLIDA"def test_repeated_file_is_flagged(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]    options = ImportOptions(create_missing_catalogs=True)    path = project_root / "samples" / "productos_valido.csv"    first = services.imports.validate(path, options)    services.imports.apply(first.importacion_id, options)    second = services.imports.validate(path, ImportOptions(create_missing_catalogs=True))    assert second.repetido is not None    assert second.repetido.id == first.importacion_iddef test_structure_errors(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]    missing_column = tmp_path / "a.csv"    missing_column.write_text("codigo,nombre\nX,Y\n", encoding="utf-8")    with pytest.raises(ValidationError) as structure:        services.imports.validate(missing_column, ImportOptions())    assert structure.value.code == "CSV_ESTRUCTURA"    empty = tmp_path / "b.csv"    empty.write_text("", encoding="utf-8")    with pytest.raises(ValidationError) as blank:        services.imports.validate(empty, ImportOptions())    assert blank.value.code == "CSV_VACIO"def test_semicolon_decimal_comma_bom_and_windows_1252(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]    services.catalogs.create("categoria", {"nombre": "Ferretería"})    content = "codigo;nombre;categoria;unidad;precio_compra\nZ-1;Árbol;Ferretería;UND;1,25\n"    for name, encoding in (("bom.csv", "utf-8-sig"), ("win.csv", "cp1252")):        path = tmp_path / name        path.write_bytes(content.replace("Z-1", "Z-" + name[0]).encode(encoding))        options = ImportOptions(decimal_separator=",")        preview = services.imports.validate(path, options)        assert preview.errores == 0, name        services.imports.apply(preview.importacion_id, options)    names = {p.nombre for p in services.products.search(ProductFilter()).items}    assert names == {"Árbol"}    assert services.products.get(        services.products.search(ProductFilter(texto="Z-b")).items[0].id    ).precio_compra == D("1.25")def test_max_rows_setting_is_enforced(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]    services.settings.update({"importacion.max_filas": "2"})    path = tmp_path / "big.csv"    path.write_text(        "codigo,nombre,categoria,unidad\nA,A,C,UND\nB,B,C,UND\nC,C,C,UND\n", encoding="utf-8"    )    with pytest.raises(ValidationError) as error:        services.imports.validate(path, ImportOptions())    assert error.value.code == "CSV_DEMASIADAS_FILAS"
+"""Importación CSV de extremo a extremo con los archivos de samples/."""
+
+from __future__ import annotations
+
+
+from decimal import Decimal
+
+from pathlib import Path
+
+
+import pytest
+
+
+from sisalmacen.application.movements import MovementService
+
+from sisalmacen.domain.errors import ConflictError, ValidationError
+
+from sisalmacen.domain.importing import ImportOptions
+
+from sisalmacen.domain.inventory import MovementFilter, ProductFilter
+
+
+D = Decimal
+
+
+def _codes(preview) -> set[str]:  # type: ignore[no-untyped-def]
+
+    return {error.code for row in preview.rows for error in row.errors}
+
+
+def test_sample_errors_file_reports_e01_to_e09(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]
+
+    services.catalogs.create("categoria", {"nombre": "Ferretería"})
+
+    preview = services.imports.validate(
+        project_root / "samples" / "productos_con_errores.csv", ImportOptions()
+    )
+
+    assert _codes(preview) == {f"E0{n}" for n in range(1, 10)}
+
+    assert preview.total == 10
+
+    assert preview.errores == 9
+
+    assert preview.nuevas == 1
+
+
+def test_errors_block_application_and_nothing_is_written(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]
+
+    services.catalogs.create("categoria", {"nombre": "Ferretería"})
+
+    preview = services.imports.validate(
+        project_root / "samples" / "productos_con_errores.csv", ImportOptions()
+    )
+
+    with pytest.raises(ValidationError) as error:
+        services.imports.apply(preview.importacion_id, ImportOptions())
+
+    assert error.value.code == "CSV_CON_ERRORES"
+
+    assert services.products.search(ProductFilter(estado=None)).total == 0
+
+    report = services.imports.error_report(preview.importacion_id)
+
+    assert report[0] == ["fila", "codigo", "columna", "error_codigo", "mensaje", "valor_original"]
+
+    assert len(report) == 10  # encabezado + 9 errores
+
+
+def test_valid_sample_imports_with_missing_catalogs(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True)
+
+    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+
+    assert (preview.nuevas, preview.errores) == (5, 0)
+
+    result = services.imports.apply(preview.importacion_id, options)
+
+    assert result.insertados == 5
+
+    assert services.products.search(ProductFilter(estado=None)).total == 5
+
+    assert {c["nombre"] for c in services.catalogs.list_entries("categoria")} >= {
+        "Ferretería",
+        "Pinturas",
+    }
+
+    inactive = services.products.search(ProductFilter(estado="INACTIVO")).items
+
+    assert [p.codigo for p in inactive] == ["P-0005"]
+
+    assert services.movements.verify_consistency() == []
+
+
+def test_apply_stock_creates_linked_movements(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True, apply_stock=True, skip_error_rows=True)
+
+    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+
+    # P-0005 está INACTIVO con stock: E23 (doc 06).
+
+    assert _codes(preview) == {"E23"}
+
+    result = services.imports.apply(preview.importacion_id, options)
+
+    assert (result.insertados, result.rechazados, result.movimientos) == (4, 1, 1)
+
+    stock = {p.codigo: p.cantidad for p in services.products.search(ProductFilter()).items}
+
+    assert stock == {"P-0001": D("500"), "P-0002": D("120.5"), "P-0003": D("12"), "P-0004": D("0")}
+
+    history = services.movements.history(MovementFilter(tipo_codigo="ENT_INICIAL")).items
+
+    assert len(history) == 3  # P-0004 con stock 0 no genera línea
+
+    assert all(row.importacion_id == preview.importacion_id for row in history)
+
+    assert services.movements.verify_consistency() == []
+
+
+def test_update_mode_and_borrar_token(services, project_root: Path, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True)
+
+    first = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+
+    services.imports.apply(first.importacion_id, options)
+
+    update = tmp_path / "update.csv"
+
+    update.write_text(
+        "codigo,nombre,descripcion\nP-0001,Tornillo renombrado,[BORRAR]\nP-0002,,\n",
+        encoding="utf-8",
+    )
+
+    update_options = ImportOptions(mode="ACTUALIZAR")
+
+    preview = services.imports.validate(update, update_options)
+
+    assert (preview.actualizables, preview.sin_cambios, preview.errores) == (1, 1, 0)
+
+    services.imports.apply(preview.importacion_id, update_options)
+
+    products = {p.codigo: p for p in services.products.search(ProductFilter(estado=None)).items}
+
+    assert products["P-0001"].nombre == "Tornillo renombrado"
+
+    assert products["P-0001"].descripcion is None
+
+    assert products["P-0002"].nombre == "Cable eléctrico 2.5 mm"
+
+
+def test_legacy_header_update_without_unit_keeps_existing_unit(
+    services, project_root: Path, tmp_path: Path
+) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True)
+    first = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+    services.imports.apply(first.importacion_id, options)
+
+    update = tmp_path / "legacy_update.csv"
+    update.write_text(
+        "codigo_producto,descripcion,descripcion_adicional\nP-0001,Tornillo renombrado,[BORRAR]\nP-0002,Cable eléctrico 2.5 mm,\n",
+        encoding="utf-8",
+    )
+
+    preview = services.imports.validate(update, ImportOptions(mode="ACTUALIZAR"))
+
+    assert (preview.actualizables, preview.sin_cambios, preview.errores) == (1, 1, 0)
+
+
+def test_preview_becomes_stale_when_data_changes(
+    services, project_root: Path, make_product
+) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True)
+
+    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+
+    make_product("P-0001")  # alguien crea el mismo código antes de confirmar
+
+    with pytest.raises(ConflictError) as error:
+        services.imports.apply(preview.importacion_id, options)
+
+    assert error.value.code == "IMPORT_DESACTUALIZADA"
+
+    assert services.products.search(ProductFilter(estado=None)).total == 1  # nada se aplicó
+
+
+def test_failure_mid_apply_leaves_database_untouched(  # type: ignore[no-untyped-def]
+    services, project_root: Path, monkeypatch
+) -> None:
+
+    options = ImportOptions(create_missing_catalogs=True, apply_stock=True, skip_error_rows=True)
+
+    preview = services.imports.validate(project_root / "samples" / "productos_valido.csv", options)
+
+    def explode(*_args: object, **_kwargs: object) -> None:
+
+        raise RuntimeError("fallo simulado")
+
+    monkeypatch.setattr(MovementService, "register_in", explode)
+
+    with pytest.raises(RuntimeError):
+        services.imports.apply(preview.importacion_id, options)
+
+    assert services.products.search(ProductFilter(estado=None)).total == 0
+
+    categories = {entry["nombre"] for entry in services.catalogs.list_entries("categoria")}
+    assert "Pinturas" not in categories  # los catálogos creados también se revierten
+    history = services.imports.history()
+
+    assert history[0].estado == "FALLIDA"
+
+
+def test_repeated_file_is_flagged(services, project_root: Path) -> None:  # type: ignore[no-untyped-def]
+
+    options = ImportOptions(create_missing_catalogs=True)
+
+    path = project_root / "samples" / "productos_valido.csv"
+
+    first = services.imports.validate(path, options)
+
+    services.imports.apply(first.importacion_id, options)
+
+    second = services.imports.validate(path, ImportOptions(create_missing_catalogs=True))
+
+    assert second.repetido is not None
+
+    assert second.repetido.id == first.importacion_id
+
+
+def test_structure_errors(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+
+    missing_column = tmp_path / "a.csv"
+
+    missing_column.write_text("codigo,nombre\nX,Y\n", encoding="utf-8")
+
+    with pytest.raises(ValidationError) as structure:
+        services.imports.validate(missing_column, ImportOptions())
+
+    assert structure.value.code == "CSV_ESTRUCTURA"
+
+    empty = tmp_path / "b.csv"
+
+    empty.write_text("", encoding="utf-8")
+
+    with pytest.raises(ValidationError) as blank:
+        services.imports.validate(empty, ImportOptions())
+
+    assert blank.value.code == "CSV_VACIO"
+
+
+def test_semicolon_decimal_comma_bom_and_windows_1252(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+
+    services.catalogs.create("categoria", {"nombre": "Ferretería"})
+
+    content = "codigo;nombre;categoria;unidad;precio_compra\nZ-1;Árbol;Ferretería;UND;1,25\n"
+
+    for name, encoding in (("bom.csv", "utf-8-sig"), ("win.csv", "cp1252")):
+        path = tmp_path / name
+
+        path.write_bytes(content.replace("Z-1", "Z-" + name[0]).encode(encoding))
+
+        options = ImportOptions(decimal_separator=",")
+
+        preview = services.imports.validate(path, options)
+
+        assert preview.errores == 0, name
+
+        services.imports.apply(preview.importacion_id, options)
+
+    names = {p.nombre for p in services.products.search(ProductFilter()).items}
+
+    assert names == {"Árbol"}
+
+    assert services.products.get(
+        services.products.search(ProductFilter(texto="Z-b")).items[0].id
+    ).precio_compra == D("1.25")
+
+
+def test_max_rows_setting_is_enforced(services, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+
+    services.settings.update({"importacion.max_filas": "2"})
+
+    path = tmp_path / "big.csv"
+
+    path.write_text(
+        "codigo,nombre,categoria,unidad\nA,A,C,UND\nB,B,C,UND\nC,C,C,UND\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValidationError) as error:
+        services.imports.validate(path, ImportOptions())
+
+    assert error.value.code == "CSV_DEMASIADAS_FILAS"

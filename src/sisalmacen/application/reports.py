@@ -127,7 +127,7 @@ class ReportService:
     ) -> ReportData:
         items = uow.products.search(product_filter, page=1, page_size=0).items
         prices = self._show_prices(uow)
-        headers = ["Código", "Descripción", "Categoría", "Unidad", "Stock", "Mínimo"]
+        headers = ["Código", "Nombre", "Categoría", "Unidad", "Stock", "Mínimo"]
         types = ["text", "text", "text", "text", "qty", "qty"]
         if prices:
             headers += ["P. compra", "P. venta"]

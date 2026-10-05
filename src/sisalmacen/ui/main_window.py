@@ -214,6 +214,12 @@ class MainWindow(QMainWindow):
     def _go_to(self, row: int) -> None:
         self._navigation.setCurrentRow(row)
 
+    def open_product_import(self, path: str | None = None) -> None:
+        """Abre la pantalla de importación CSV preparada para productos."""
+
+        self._import.prepare_product_import(path)
+        self._go_to(IDX_IMPORT)
+
     def _show_section(self, index: int) -> None:
         if 0 <= index < self._stacked_pages.count():
             self._stacked_pages.setCurrentIndex(index)

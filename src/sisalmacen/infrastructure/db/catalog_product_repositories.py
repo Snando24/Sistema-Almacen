@@ -26,6 +26,7 @@ from sisalmacen.domain.inventory import (
     ProductData,
     ProductFilter,
     ProductRecord,
+    normalize_alert_code,
 )
 
 from sisalmacen.infrastructure.db.models import (
@@ -267,7 +268,7 @@ def _filter_conditions(product_filter: ProductFilter) -> list[Any]:
     if product_filter.alerta:
         conditions.append(Producto.activo == 1)
 
-        conditions.append(alert_conditions()[product_filter.alerta])
+        conditions.append(alert_conditions()[normalize_alert_code(product_filter.alerta)])
 
     if product_filter.precio_desde is not None:
         conditions.append(Producto.precio_venta >= product_filter.precio_desde)
@@ -333,7 +334,6 @@ class SqlAlchemyProductRepository:
             precio_compra=data.precio_compra,
             precio_venta=data.precio_venta,
             stock_minimo=data.stock_minimo,
-            stock_maximo=data.stock_maximo,
             observaciones=data.observaciones,
             activo=1 if data.activo else 0,
             creado_en=utc_now(),
@@ -374,7 +374,6 @@ class SqlAlchemyProductRepository:
             "precio_compra",
             "precio_venta",
             "stock_minimo",
-            "stock_maximo",
             "observaciones",
         ):
             setattr(product, key, getattr(data, key))

@@ -58,12 +58,32 @@ ProgressCallback = Callable[[int, int], None]
 _MAX_STOCK = Decimal("999999999")
 _QUANTITY_COLUMNS = ("stock_minimo", "stock")
 _MONEY_COLUMNS = ("precio_compra", "precio_venta")
+_LEGACY_QUANTITY_COLUMNS = ("stock_maximo",)
 _CATALOG_COLUMNS = (
     ("categoria", "categoria_id", "categorias", True),
     ("marca", "marca_id", "marcas", False),
     ("proveedor", "proveedor_id", "proveedores", False),
     ("ubicacion", "ubicacion_id", "ubicaciones", False),
 )
+_HEADER_ALIASES: dict[str, tuple[str, ...]] = {
+    "codigo": ("codigo", "codigo_producto"),
+    "nombre": ("nombre", "descripcion"),
+    "categoria": ("categoria",),
+    "unidad": ("unidad",),
+    "codigo_barras": ("codigo_barras", "codigo_barras_producto"),
+    "descripcion": ("descripcion_adicional", "descripcion"),
+    "marca": ("marca",),
+    "proveedor": ("proveedor",),
+    "ubicacion": ("ubicacion",),
+    "precio_compra": ("precio_compra",),
+    "precio_venta": ("precio_venta",),
+    "stock_minimo": ("stock_minimo",),
+    "stock_maximo": ("stock_maximo",),
+    "stock": ("stock", "stock_actual", "stock_inicial"),
+    "estado": ("estado",),
+    "observaciones": ("observaciones", "observacion"),
+}
+_LEGACY_PRODUCT_HINTS = frozenset({"codigo_producto", "descripcion", "descripcion_adicional"})
 
 
 def normalize_header(value: str) -> str:
@@ -82,6 +102,31 @@ def parse_decimal(text: str, separator: str) -> Decimal:
     if not value.is_finite():
         raise InvalidOperation
     return value
+
+
+def resolve_headers(headers: list[str]) -> tuple[dict[str, str], list[str], bool]:
+    """Mapea encabezados reales a columnas canónicas y devuelve advertencias."""
+
+    normalized = {normalize_header(header): header for header in headers}
+    resolved: dict[str, str] = {}
+    used_sources: set[str] = set()
+    for canonical, aliases in _HEADER_ALIASES.items():
+        for alias in aliases:
+            if alias in normalized:
+                resolved[canonical] = normalized[alias]
+                used_sources.add(alias)
+                break
+    warnings = [
+        f"Columna ignorada: {original}"
+        for key, original in normalized.items()
+        if key not in used_sources
+    ]
+    legacy_product_format = (
+        "codigo_producto" in normalized
+        or "descripcion_adicional" in normalized
+        or ("descripcion" in normalized and "nombre" not in normalized and "codigo" in normalized)
+    )
+    return resolved, warnings, legacy_product_format
 
 
 # ---------- clasificación de filas (sin BD) ----------
@@ -115,7 +160,7 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
     def fail(error_code: str, column: str, message: str) -> None:
         errors.append(RowError(error_code, column, message, raw.get(column, "")))
 
-    if not code and options.mode == "ACTUALIZAR":
+    if not code:
         fail("E01", "codigo", "El código está vacío.")
         return result
     key = code.lower()
@@ -184,6 +229,8 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
             fail("E04", column, f"No existe {column} '{text}' en el catálogo.")
 
     unit_text = cell("unidad")
+    if unit_text == "__LEGACY_UND__":
+        unit_text = "UND" if is_insert else ""
     if not unit_text:
         if is_insert:
             fail("E03", "unidad", "El campo unidad es obligatorio en el alta.")
@@ -200,7 +247,7 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
 
     # números
     numbers: dict[str, Decimal | None] = {}
-    for column in (*_MONEY_COLUMNS, *_QUANTITY_COLUMNS):
+    for column in (*_MONEY_COLUMNS, *_QUANTITY_COLUMNS, *_LEGACY_QUANTITY_COLUMNS):
         text = cell(column)
         if not text:
             continue
@@ -229,6 +276,12 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
             fail("E07", column, "La unidad no admite decimales.")
             continue
         numbers[column] = number
+    if (
+        numbers.get("stock_minimo") is not None
+        and numbers.get("stock_maximo") is not None
+        and numbers["stock_maximo"] < numbers["stock_minimo"]
+    ):
+        fail("E06", "stock_maximo", "El stock máximo debe ser mayor o igual que el stock mínimo.")
     if numbers.get("stock") is not None and numbers["stock"] > _MAX_STOCK:  # type: ignore[operator]
         fail("E24", "stock", "El stock está fuera del rango permitido.")
     for column in ("precio_compra", "precio_venta", "stock_minimo"):
@@ -351,18 +404,15 @@ class ImportService:
             max_rows=max_rows,
         )
 
-        header_map = {normalize_header(h): h for h in content.headers}
+        header_map, warnings, legacy_product_format = resolve_headers(content.headers)
         required = ("codigo",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
         missing = [column for column in required if column not in header_map]
+        if "unidad" in missing and legacy_product_format:
+            missing = [column for column in missing if column != "unidad"]
         if missing:
             raise ValidationError(
                 f"Faltan columnas obligatorias: {', '.join(missing)}.", code="CSV_ESTRUCTURA"
             )
-        warnings = [
-            f"Columna ignorada: {original}"
-            for normalized, original in header_map.items()
-            if normalized not in COLUMNS
-        ]
         rows = [
             (
                 number,
@@ -374,6 +424,9 @@ class ImportService:
             )
             for number, row in content.rows
         ]
+        if legacy_product_format and "unidad" not in header_map:
+            for _number, row in rows:
+                row.setdefault("unidad", "__LEGACY_UND__")
 
         with self._uow_factory() as uow:
             lookups = uow.imports.load_lookups()

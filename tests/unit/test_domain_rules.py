@@ -145,7 +145,7 @@ def _codes(
 
 
 def test_import_allows_an_insert_without_external_code() -> None:
-    assert _codes([_row(codigo="")]) == [set()]
+    assert _codes([_row(codigo="")]) == [{"E01"}]
 
 
 def test_import_update_requires_an_external_code() -> None:

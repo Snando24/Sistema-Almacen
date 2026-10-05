@@ -61,10 +61,13 @@ def make_product(services) -> Callable[..., int]:  # type: ignore[no-untyped-def
 
     def factory(code: str = "P-1", unit: str = "UND", **extra: object) -> int:
         categories = services.catalogs.list_entries("categoria")
-        category_id = next(
-            (int(category["id"]) for category in categories if category["nombre"] == "General"),
-            services.catalogs.create("categoria", {"nombre": "General"}),
-        )
+        general = next((category for category in categories if category["nombre"] == "General"), None)
+        if general is not None:
+            category_id = int(general["id"])
+        elif categories:
+            category_id = int(max(categories, key=lambda category: int(category["id"]))["id"])
+        else:
+            category_id = services.catalogs.create("categoria", {"nombre": "General"})
         unit_id = next(
             u["id"] for u in services.catalogs.list_entries("unidad_medida") if u["codigo"] == unit
         )

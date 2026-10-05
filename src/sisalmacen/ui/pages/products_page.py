@@ -27,6 +27,7 @@ from sisalmacen.domain.inventory import (
     ALERT_LABELS,
     ProductFilter,
     ProductRecord,
+    normalize_alert_code,
 )
 from sisalmacen.ui.dialogs.product_dialog import ProductDetailDialog, ProductDialog, fill_combo
 from sisalmacen.ui.exporting import export_report
@@ -125,7 +126,7 @@ class ProductsPage(QWidget):
         new_button.setEnabled("productos.crear" in permisos)
         new_button.clicked.connect(self._new)
         import_button = secondary_button("Importar CSV")
-        import_button.setEnabled("productos.crear" in permisos)
+        import_button.setEnabled("importacion.ejecutar" in permisos)
         import_button.clicked.connect(self._import_csv)
         download_template = secondary_button("Descargar plantilla")
         download_template.setEnabled("productos.ver" in permisos)
@@ -140,7 +141,7 @@ class ProductsPage(QWidget):
         self._toggle_button.clicked.connect(self._toggle)
 
         export_button = QToolButton()
-        export_button.setText("Exportar ?")
+        export_button.setText("Exportar…")
         export_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         export_menu = QMenu(export_button)
         for fmt, label in (("csv", "CSV"), ("xlsx", "Excel"), ("pdf", "PDF")):
@@ -159,9 +160,9 @@ class ProductsPage(QWidget):
         actions.addStretch(1)
         actions.addWidget(export_button)
 
-        self._prev = secondary_button("? Anterior")
+        self._prev = secondary_button("← Anterior")
         self._prev.clicked.connect(self._previous_page)
-        self._next = secondary_button("Siguiente ?")
+        self._next = secondary_button("Siguiente →")
         self._next.clicked.connect(self._next_page)
         self._status = QLabel("")
         pager = QHBoxLayout()
@@ -209,8 +210,9 @@ class ProductsPage(QWidget):
     def show_alert(self, alert: str | None) -> None:
         """Atajo desde el Dashboard (RF-073): filtra por alerta y muestra solo activos."""
 
+        normalized = normalize_alert_code(alert)
         self._clear_filters(refresh=False)
-        index = self._alert.findData(alert)
+        index = self._alert.findData(normalized)
         if index >= 0:
             self._alert.setCurrentIndex(index)
         self._apply_filters()
@@ -223,7 +225,7 @@ class ProductsPage(QWidget):
             proveedor_id=self._supplier.currentData(),
             ubicacion_id=self._location.currentData(),
             estado=self._state.currentData(),
-            alerta=self._alert.currentData(),
+            alerta=normalize_alert_code(self._alert.currentData()),
             precio_desde=parse_decimal_input(self._price_from.text(), "Precio desde"),
             precio_hasta=parse_decimal_input(self._price_to.text(), "Precio hasta"),
             registrado_desde=parse_date_input(self._date_from.text(), "Registrado desde"),
@@ -354,35 +356,22 @@ class ProductsPage(QWidget):
         self.refresh()
 
     def _import_csv(self) -> None:
-        """Abre diálogo para importar productos desde CSV."""
+        """Redirige al flujo oficial de importación CSV de productos."""
 
         from PySide6.QtWidgets import QFileDialog
-        from sisalmacen.ui.dialogs.csv_import_dialog import CSVImportDialog
-        from sisalmacen.application.csv_export import PRODUCTOS_CSV_HEADERS
-        
+
         filename, _ = QFileDialog.getOpenFileName(self, "Importar productos", "", "CSV (*.csv)")
         if not filename:
             return
-        try:
-            # Read CSV file
-            with open(filename, "r", encoding="utf-8") as f:
-                csv_content = f.read()
-            
-            # Show preview dialog
-            dialog = CSVImportDialog(csv_content, PRODUCTOS_CSV_HEADERS, parent=self)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            
-            # Import products
-            result = self._services.products.import_csv(csv_content)
-            QMessageBox.information(
-                self, 
-                "Importación completada", 
-                f"Productos creados: {result['created']}\nErrores: {result['errors']}"
-            )
-            self.refresh()
-        except Exception as error:
-            show_error(self, error)
+        main_window = self.window()
+        if hasattr(main_window, "open_product_import"):
+            main_window.open_product_import(filename)
+            return
+        QMessageBox.information(
+            self,
+            "Importar productos",
+            "Abra la sección «Importación CSV» para validar y aplicar el archivo.",
+        )
 
     def _download_template(self) -> None:
         """Descarga plantilla CSV para productos."""

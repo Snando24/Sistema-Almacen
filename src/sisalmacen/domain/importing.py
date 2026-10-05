@@ -28,6 +28,7 @@ COLUMNS = (
     "precio_compra",
     "precio_venta",
     "stock_minimo",
+    "stock_maximo",
     "stock",
     "estado",
     "observaciones",
@@ -99,9 +100,10 @@ class ExistingProduct:
     precio_compra: Decimal | None
     precio_venta: Decimal | None
     stock_minimo: Decimal | None
-    observaciones: str | None
-    cantidad: Decimal
-    has_movements: bool
+    observaciones: str | None = None
+    stock_maximo: Decimal | None = None
+    cantidad: Decimal = Decimal("0")
+    has_movements: bool = False
 
 
 @dataclass(frozen=True)

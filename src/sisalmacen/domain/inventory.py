@@ -33,6 +33,17 @@ ALERT_LABELS = {
     ALERT_BAJO_MINIMO: "Bajo mínimo",
 }
 
+LEGACY_ALERT_ALIASES = {
+    "SIN_STOCK": ALERT_AGOTADO,
+    "BAJO_MINIMO": ALERT_BAJO_MINIMO,
+}
+
+
+def normalize_alert_code(alert: str | None) -> str | None:
+    if alert is None:
+        return None
+    return LEGACY_ALERT_ALIASES.get(alert, alert)
+
 
 NATURE_SIGN = {"ENTRADA": 1, "AJUSTE_POS": 1, "SALIDA": -1, "AJUSTE_NEG": -1}
 

@@ -39,10 +39,14 @@ def test_all_reports_build_with_known_data(services, make_product) -> None:  # t
     )
     built = {key: services.reports.build(key, params) for key, _title in REPORTS}
 
+    categoria = max(services.catalogs.list_entries("categoria"), key=lambda row: int(row["id"]))[
+        "nombre"
+    ]
+
     assert len(built["inventario_general"].rows) == 2
     assert [r[0] for r in built["stock_bajo"].rows] == ["P-1"]
     assert built["sin_stock"].rows == []
-    assert built["por_categoria"].rows == [["General", 2, 2, D("50.0")]]
+    assert built["por_categoria"].rows == [[categoria, 2, 2, D("50.0")]]
     assert len(built["movimientos_periodo"].rows) == 2
     assert len(built["historial_producto"].rows) == 1
     valued = built["valorizado"]

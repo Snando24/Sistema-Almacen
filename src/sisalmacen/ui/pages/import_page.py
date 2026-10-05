@@ -225,6 +225,14 @@ class ImportPage(QWidget):
         self._errors_button.setEnabled(has_preview and self._has_errors and not busy)
         self._apply_button.setEnabled(has_preview and can_run and not busy)
         self._discard_button.setEnabled(has_preview and not busy)
+
+    def prepare_product_import(self, path: str | None = None) -> None:
+        """Prepara la pantalla para importar productos desde otras vistas."""
+
+        self._reset_preview()
+        self._summary.setText("Seleccione un archivo y pulse «Validar archivo».")
+        if path:
+            self._path.setText(path)
 
     def _read_options(self) -> ImportOptions:
         return ImportOptions(
@@ -423,6 +431,7 @@ class ImportPage(QWidget):
     def _reset_preview(self) -> None:
         self._preview = None
         self._import_id = None
+        self._options = None
         self._has_errors = False
         self._warnings.setText("")
         self._model.set_rows([])
