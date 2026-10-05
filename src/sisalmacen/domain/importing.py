@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 MODES = ("INSERTAR", "ACTUALIZAR", "INSERTAR_ACTUALIZAR")
@@ -60,6 +61,38 @@ REQUIRED_FOR_INSERT = ("codigo_producto", "descripcion")  # Para PRODUCTOS
 REQUIRED_FOR_MOVEMENT = ("tipo_movimiento", "fecha", "codigo_producto", "cantidad", "um")  # Para MOVIMIENTOS
 
 
+class FileType(Enum):
+    """Tipo de archivo CSV a importar."""
+
+    PRODUCTOS = "productos"
+    MOVIMIENTOS = "movimientos"
+    DESCONOCIDO = "desconocido"
+
+
+def detect_file_type(headers: list[str]) -> FileType:
+    """Detecta el tipo de archivo analizando los headers.
+    
+    Reglas de detección:
+    - Si contiene 'tipo_movimiento' → MOVIMIENTOS
+    - Si contiene 'codigo_producto' Y 'descripcion' → PRODUCTOS
+    - Si no coincide ninguno → DESCONOCIDO
+    """
+    # Normalizar headers para comparación sin acentos/mayúsculas
+    normalized = [h.lower().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u") for h in headers]
+    
+    # Detectar tipo de movimiento
+    if "tipo_movimiento" in normalized:
+        return FileType.MOVIMIENTOS
+    
+    # Detectar productos
+    has_codigo = "codigo_producto" in normalized
+    has_descripcion = "descripcion" in normalized
+    if has_codigo and has_descripcion:
+        return FileType.PRODUCTOS
+    
+    return FileType.DESCONOCIDO
+
+
 @dataclass(frozen=True)
 class CsvContent:
     headers: list[str]
@@ -78,6 +111,7 @@ class ImportOptions:
     create_missing_catalogs: bool = False
     apply_stock: bool = False
     skip_error_rows: bool = False
+    file_type: FileType = FileType.DESCONOCIDO
 
 
 @dataclass(frozen=True)

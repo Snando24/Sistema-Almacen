@@ -35,6 +35,7 @@ from sisalmacen.domain.importing import (
     MODES,
     REQUIRED_FOR_INSERT,
     REQUIRED_FOR_MOVEMENT,
+    FileType,
     ImportDetail,
     ImportLookups,
     ImportOptions,
@@ -44,6 +45,7 @@ from sisalmacen.domain.importing import (
     PendingCatalog,
     RowError,
     RowResult,
+    detect_file_type,
 )
 from sisalmacen.domain.inventory import (
     MONEY_PLACES,
@@ -354,8 +356,33 @@ class ImportService:
             max_rows=max_rows,
         )
 
+        # Detectar tipo de archivo (Productos vs Movimientos)
+        file_type = detect_file_type(content.headers)
+        options_with_type = ImportOptions(
+            mode=options.mode,
+            encoding=options.encoding,
+            delimiter=options.delimiter,
+            decimal_separator=options.decimal_separator,
+            create_missing_catalogs=options.create_missing_catalogs,
+            apply_stock=options.apply_stock,
+            skip_error_rows=options.skip_error_rows,
+            file_type=file_type,
+        )
+
         header_map = {normalize_header(h): h for h in content.headers}
-        required = ("codigo_producto",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+        
+        # Determinar campos requeridos según tipo de archivo
+        if file_type == FileType.MOVIMIENTOS:
+            required = REQUIRED_FOR_MOVEMENT
+            columns_to_use = COLUMNS_MOVIMIENTOS
+        elif file_type == FileType.PRODUCTOS:
+            required = ("codigo_producto",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+            columns_to_use = COLUMNS_PRODUCTOS
+        else:
+            # Si no se puede detectar el tipo, intentar como Productos para compatibilidad
+            required = ("codigo_producto",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+            columns_to_use = COLUMNS_PRODUCTOS
+            
         missing = [column for column in required if column not in header_map]
         if missing:
             raise ValidationError(
@@ -364,14 +391,14 @@ class ImportService:
         warnings = [
             f"Columna ignorada: {original}"
             for normalized, original in header_map.items()
-            if normalized not in COLUMNS
+            if normalized not in columns_to_use
         ]
         rows = [
             (
                 number,
                 {
                     column: row.get(header_map[column], "")
-                    for column in COLUMNS
+                    for column in columns_to_use
                     if column in header_map
                 },
             )
@@ -380,7 +407,7 @@ class ImportService:
 
         with self._uow_factory() as uow:
             lookups = uow.imports.load_lookups()
-            results = classify_rows(rows, options, lookups)
+            results = classify_rows(rows, options_with_type, lookups)
             repeated = uow.imports.find_applied_by_hash(content.sha256)
             import_id = uow.imports.create(
                 file_name=path.name,

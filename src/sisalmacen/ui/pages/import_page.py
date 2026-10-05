@@ -64,6 +64,10 @@ from sisalmacen.domain.importing import (
 
     ImportRecord,
 
+    FileType,
+
+    detect_file_type,
+
 )
 
 from sisalmacen.ui.exporting import write_csv_rows
@@ -141,6 +145,9 @@ class ImportPage(QWidget):
 
         # Máquina de estados (Documento 11, §3)
         self._state = ImportState.SIN_ARCHIVO
+
+        # Tipo de archivo detectado
+        self._detected_file_type = FileType.DESCONOCIDO
 
         self._preview: ImportPreview | None = None
 
@@ -506,6 +513,8 @@ class ImportPage(QWidget):
 
             skip_error_rows=self._skip_errors.isChecked(),
 
+            file_type=self._detected_file_type,
+
         )
 
 
@@ -609,9 +618,52 @@ class ImportPage(QWidget):
         if chosen:
 
             self._path.setText(chosen)
+            # Detectar tipo de archivo leyendo los headers
+            self._detect_file_type(chosen)
             self._state = ImportState.ARCHIVO_SELECCIONADO
             self._update_buttons()
+            self._update_options_visibility()
 
+
+
+    def _detect_file_type(self, file_path: str) -> None:
+        """Detecta el tipo de archivo (Productos vs Movimientos) leyendo los headers."""
+        try:
+            path = Path(file_path)
+            # Leer solo la primera línea para obtener headers
+            with open(path, "r", encoding="utf-8-sig") as f:
+                first_line = f.readline().strip()
+                if not first_line:
+                    self._detected_file_type = FileType.DESCONOCIDO
+                    return
+                
+                # Intentar detectar el separador
+                delimiter = ","
+                if ";" in first_line:
+                    delimiter = ";"
+                elif "\t" in first_line:
+                    delimiter = "\t"
+                
+                headers = [h.strip() for h in first_line.split(delimiter)]
+                self._detected_file_type = detect_file_type(headers)
+        except Exception:
+            # Si no se puede leer, asumir desconocido
+            self._detected_file_type = FileType.DESCONOCIDO
+
+    def _update_options_visibility(self) -> None:
+        """Actualiza la visibilidad de opciones según el tipo de archivo detectado."""
+        if self._detected_file_type == FileType.MOVIMIENTOS:
+            # Para Movimientos, ocultar opciones que no aplican
+            self._create_missing.setVisible(False)
+            self._apply_stock.setVisible(False)
+        elif self._detected_file_type == FileType.PRODUCTOS:
+            # Para Productos, mostrar todas las opciones (si tienen permiso)
+            self._create_missing.setVisible("catalogos.gestionar" in self._permisos)
+            self._apply_stock.setVisible("movimientos.ajuste" in self._permisos)
+        else:
+            # Desconocido - mostrar todas las opciones para compatibilidad
+            self._create_missing.setVisible("catalogos.gestionar" in self._permisos)
+            self._apply_stock.setVisible("movimientos.ajuste" in self._permisos)
 
 
     @guarded
