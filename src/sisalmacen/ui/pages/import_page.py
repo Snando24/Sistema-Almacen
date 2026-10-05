@@ -350,18 +350,26 @@ class ImportPage(QWidget):
 
         self._summary.setWordWrap(True)
 
+        self._summary.setMinimumHeight(30)  # Altura mínima reducida
+
+        self._summary.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+
         self._warnings = QLabel("")
 
         self._warnings.setWordWrap(True)
 
         self._warnings.setStyleSheet("color: #9e0f18; font-weight: 600;")
 
+        self._warnings.setMinimumHeight(0)  # Sin altura mínima, se expande solo si hay contenido
+
+        self._warnings.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+
         self._model = TableModel(["Fila", "Código", "Acción", "Detalle"])
 
         self._table = make_table(self._model)
         
         # Configurar tamaño y política de la tabla para soporte de contenido variable
-        self._table.setMinimumHeight(200)
+        self._table.setMinimumHeight(100)  # Altura mínima más pequeña para caber en pantallas medianas
         self._table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Crear un contenedor para la previsualización con bordes claros
@@ -379,7 +387,8 @@ class ImportPage(QWidget):
 
         preview_box = QGroupBox("Previsualización de validación")
         preview_box.setLayout(preview_layout)
-        preview_box.setMinimumHeight(250)  # Asegurar altura mínima para el grupo
+        # NO establecer altura mínima - dejar que se expanda naturalmente con el espacio disponible
+        preview_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         widget = QWidget()
 
@@ -387,7 +396,7 @@ class ImportPage(QWidget):
 
         layout.setContentsMargins(0, 0, 0, 0)  # Reducir márgenes innecesarios
 
-        layout.setSpacing(8)  # Espaciado controlado entre secciones
+        layout.setSpacing(4)  # Espaciado reducido entre secciones
 
         layout.addWidget(options_box)
 
@@ -399,11 +408,10 @@ class ImportPage(QWidget):
 
         widget.setLayout(layout)
 
+        # Permitir que el widget se expanda completamente
+        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         return widget
-
-
-
-    def _build_history_tab(self) -> QWidget:
 
         self._history_model = TableModel(
 
