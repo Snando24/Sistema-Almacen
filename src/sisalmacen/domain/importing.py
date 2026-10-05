@@ -15,24 +15,49 @@ ACTION_ERROR = "ERROR"
 
 CLEAR_TOKEN = "[BORRAR]"  # noqa: S105
 
-COLUMNS = (
-    "codigo",
-    "nombre",
-    "categoria",
-    "unidad",
-    "codigo_barras",
+# Columnas para PRODUCTOS (Documento 10)
+COLUMNS_PRODUCTOS = (
+    "codigo_producto",
     "descripcion",
+    "descripcion_adicional",
     "marca",
-    "proveedor",
-    "ubicacion",
+    "categoria",
     "precio_compra",
     "precio_venta",
     "stock_minimo",
-    "stock",
+    "stock_inicial",
+    "entradas",
+    "salidas",
+    "stock_actual",
+    "almacen",
+    "ubicacion",
+    "proveedor",
+    "fecha_registro",
     "estado",
-    "observaciones",
+    "observacion",
 )
-REQUIRED_FOR_INSERT = ("nombre", "categoria", "unidad")
+
+# Columnas para MOVIMIENTOS (Documento 10)
+COLUMNS_MOVIMIENTOS = (
+    "tipo_movimiento",
+    "fecha",
+    "codigo_producto",
+    "descripcion",
+    "cantidad",
+    "um",
+    "documento",
+    "almacen",
+    "ubicacion",
+    "proveedor",
+    "observacion",
+)
+
+# Mantener COLUMNS para compatibilidad retroactiva (DEPRECATED)
+COLUMNS = COLUMNS_PRODUCTOS
+
+# Campos obligatorios mínimos por tipo (Documento 10, §5 y §17)
+REQUIRED_FOR_INSERT = ("codigo_producto", "descripcion")  # Para PRODUCTOS
+REQUIRED_FOR_MOVEMENT = ("tipo_movimiento", "fecha", "codigo_producto", "cantidad", "um")  # Para MOVIMIENTOS
 
 
 @dataclass(frozen=True)

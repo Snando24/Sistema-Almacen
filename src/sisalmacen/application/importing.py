@@ -30,8 +30,11 @@ from sisalmacen.domain.importing import (
     ACTION_UPDATE,
     CLEAR_TOKEN,
     COLUMNS,
+    COLUMNS_PRODUCTOS,
+    COLUMNS_MOVIMIENTOS,
     MODES,
     REQUIRED_FOR_INSERT,
+    REQUIRED_FOR_MOVEMENT,
     ImportDetail,
     ImportLookups,
     ImportOptions,
@@ -108,7 +111,7 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
     seen_codes: set[str],
     seen_barcodes: dict[str, str],
 ) -> RowResult:
-    code = raw.get("codigo", "").strip()
+    code = raw.get("codigo_producto", "").strip()
     result = RowResult(nro_fila=number, codigo=code, accion=ACTION_ERROR, raw=raw)
     errors = result.errors
 
@@ -116,23 +119,23 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
         errors.append(RowError(error_code, column, message, raw.get(column, "")))
 
     if not code and options.mode == "ACTUALIZAR":
-        fail("E01", "codigo", "El código está vacío.")
+        fail("E01", "codigo_producto", "El código está vacío.")
         return result
     key = code.lower()
     if key and key in seen_codes:
-        fail("E02", "codigo", "El código está duplicado dentro del archivo.")
+        fail("E02", "codigo_producto", "El código está duplicado dentro del archivo.")
         return result
     if key:
         seen_codes.add(key)
     if code and len(code) > 50:
-        fail("E10", "codigo", "El código excede 50 caracteres.")
+        fail("E10", "codigo_producto", "El código excede 50 caracteres.")
 
     existing = lookups.productos.get(key) if key else None
     result.existing_id = existing.id if existing else None
     if existing and options.mode == "INSERTAR":
-        fail("E20", "codigo", "El producto ya existe y el modo es INSERTAR.")
+        fail("E20", "codigo_producto", "El producto ya existe y el modo es INSERTAR.")
     if not existing and options.mode == "ACTUALIZAR":
-        fail("E21", "codigo", "El producto no existe y el modo es ACTUALIZAR.")
+        fail("E21", "codigo_producto", "El producto no existe y el modo es ACTUALIZAR.")
     is_insert = existing is None
     values: dict[str, Any] = {}
 
@@ -141,9 +144,9 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
 
     # texto libre
     for column, limit, required in (
-        ("nombre", 200, True),
-        ("descripcion", None, False),
-        ("observaciones", None, False),
+        ("descripcion", None, True),
+        ("descripcion_adicional", None, False),
+        ("observacion", None, False),
     ):
         text = cell(column)
         if not text:
@@ -352,7 +355,7 @@ class ImportService:
         )
 
         header_map = {normalize_header(h): h for h in content.headers}
-        required = ("codigo",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+        required = ("codigo_producto",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
         missing = [column for column in required if column not in header_map]
         if missing:
             raise ValidationError(
