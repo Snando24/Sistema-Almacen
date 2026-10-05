@@ -88,7 +88,7 @@ class DashboardPage(QScrollArea):
             self._card(
                 "Bajo el mínimo",
                 str(snapshot.productos_bajo_minimo),
-                "Stock ? mínimo",
+                "Por debajo del stock mínimo",
                 alert=ALERT_BAJO_MINIMO,
             ),
         ]
