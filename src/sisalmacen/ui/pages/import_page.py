@@ -272,6 +272,10 @@ class ImportPage(QWidget):
 
         form = QFormLayout()
 
+        form.setContentsMargins(0, 0, 0, 0)  # Sin márgenes externos
+
+        form.setSpacing(4)  # Espaciado reducido entre filas
+
         form.addRow("Archivo", file_row)
 
         form.addRow("Codificación", self._encoding)
@@ -286,6 +290,10 @@ class ImportPage(QWidget):
 
         options_layout = QVBoxLayout()
 
+        options_layout.setContentsMargins(5, 5, 5, 5)  # Márgenes compactos internos
+
+        options_layout.setSpacing(4)  # Espaciado reducido entre items
+
         options_layout.addLayout(form)
 
         options_layout.addWidget(self._create_missing)
@@ -295,6 +303,8 @@ class ImportPage(QWidget):
         options_layout.addWidget(self._skip_errors)
 
         options_box.setLayout(options_layout)
+        # Configurar que el grupo de opciones NO crezca más allá de lo necesario
+        options_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
 
 
 
@@ -315,6 +325,10 @@ class ImportPage(QWidget):
         self._discard_button.clicked.connect(self._discard)
 
         buttons = QHBoxLayout()
+
+        buttons.setContentsMargins(0, 4, 0, 4)  # Espaciado vertical compacto
+
+        buttons.setSpacing(6)  # Espaciado entre botones
 
         buttons.addWidget(self._validate_button)
 
@@ -352,8 +366,15 @@ class ImportPage(QWidget):
 
         # Crear un contenedor para la previsualización con bordes claros
         preview_layout = QVBoxLayout()
+
+        preview_layout.setContentsMargins(5, 5, 5, 5)  # Márgenes compactos
+
+        preview_layout.setSpacing(4)  # Espaciado reducido
+
         preview_layout.addWidget(self._summary)
+
         preview_layout.addWidget(self._warnings)
+
         preview_layout.addWidget(self._table, 1)  # La tabla se expande para llenar espacio disponible
 
         preview_box = QGroupBox("Previsualización de validación")
@@ -363,6 +384,10 @@ class ImportPage(QWidget):
         widget = QWidget()
 
         layout = QVBoxLayout()
+
+        layout.setContentsMargins(0, 0, 0, 0)  # Reducir márgenes innecesarios
+
+        layout.setSpacing(8)  # Espaciado controlado entre secciones
 
         layout.addWidget(options_box)
 
