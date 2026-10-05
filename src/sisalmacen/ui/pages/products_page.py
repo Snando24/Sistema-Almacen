@@ -53,18 +53,29 @@ PAGE_SIZE = 50
 
 
 def _get_alert_colors() -> dict[str, QColor]:
-    """Devuelve colores de alerta adaptados al tema actual (claro/oscuro)."""
+    """Devuelve colores de alerta adaptados al tema actual (claro/oscuro).
+    
+    Usa colores de Material Design que tienen buen contraste en ambos modos:
+    - Modo claro: Colores pastel suave
+    - Modo oscuro: Colores vibrantes y saturados para máximo contraste
+    """
     is_dark = current_theme_mode() == THEME_DARK
     return {
-        ALERT_AGOTADO: QColor("#7f1d1a") if is_dark else QColor("#fde2e4"),  # Rojo oscuro en oscuro, rojo claro en claro
-        ALERT_BAJO_MINIMO: QColor("#713f12") if is_dark else QColor("#fff3cd"),  # Naranja oscuro en oscuro, amarillo claro en claro
+        # Rojo: pastel en claro, vibrante en oscuro
+        ALERT_AGOTADO: QColor("#d32f2f") if is_dark else QColor("#fde2e4"),
+        # Naranja: pastel en claro, vibrante en oscuro
+        ALERT_BAJO_MINIMO: QColor("#fb8c00") if is_dark else QColor("#fff3cd"),
     }
 
 
 def _get_inactive_color() -> QColor:
-    """Devuelve el color para productos inactivos adaptado al tema actual."""
+    """Devuelve el color para productos inactivos adaptado al tema actual.
+    
+    - Modo claro: Gris suave
+    - Modo oscuro: Gris más claro con buena legibilidad
+    """
     is_dark = current_theme_mode() == THEME_DARK
-    return QColor("#3a4248") if is_dark else QColor("#e5e5e2")
+    return QColor("#616161") if is_dark else QColor("#e5e5e2")
 
 
 _ALERT_COLORS = _get_alert_colors()
