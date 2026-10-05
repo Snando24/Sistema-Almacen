@@ -190,6 +190,26 @@ def test_movement_csv_uses_codigo_producto_for_validation(services, tmp_path: Pa
     assert preview.rows[0].accion in {"INSERTAR", "ACTUALIZAR", "SIN_CAMBIOS"}
 
 
+def test_movement_csv_allows_repeated_product_codes(services, tmp_path: Path, make_product) -> None:  # type: ignore[no-untyped-def]
+
+    make_product("7018-3.2")
+    make_product("7018-4")
+
+    csv_path = tmp_path / "movimientos_repetidos.csv"
+    csv_path.write_text(
+        "tipo_movimiento,fecha,codigo_producto,descripcion,cantidad,um,documento,almacen,ubicacion,proveedor,observacion\n"
+        "ENTRADA,2023-11-01,7018-3.2,Producto 1,25,CAJA,F1-025,,,,Movimiento 1\n"
+        "SALIDA,2023-11-10,7018-3.2,Producto 1,5,CAJA,F001-001,,,,Movimiento 2\n"
+        "ENTRADA,2023-11-11,7018-4,Producto 2,10,CAJA,A001-010,,,,Movimiento 3\n",
+        encoding="utf-8",
+    )
+
+    preview = services.imports.validate(csv_path, ImportOptions())
+
+    assert preview.total == 3
+    assert preview.errores == 0
+
+
 def test_preview_becomes_stale_when_data_changes(
     services, project_root: Path, make_product
 ) -> None:  # type: ignore[no-untyped-def]

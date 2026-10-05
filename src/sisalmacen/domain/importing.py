@@ -203,6 +203,7 @@ class ImportPreview:
     rows: list[RowResult]
     warnings: list[str] = field(default_factory=list)
     repetido: ImportRecord | None = None
+    file_type: FileType = FileType.DESCONOCIDO
 
 
 @dataclass(frozen=True)

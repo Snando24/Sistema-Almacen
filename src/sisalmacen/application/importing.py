@@ -7,6 +7,7 @@ import re
 import unicodedata
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -99,6 +100,17 @@ _HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "observacion": ("observacion", "observaciones"),
 }
 _LEGACY_PRODUCT_HINTS = frozenset({"codigo_producto", "descripcion", "descripcion_adicional"})
+_MOVEMENT_KIND_ALIASES = {
+    "ENTRADA": "ENT_COMPRA",
+    "INGRESO": "ENT_COMPRA",
+    "COMPRA": "ENT_COMPRA",
+    "SALIDA": "SAL_CONSUMO",
+    "VENTA": "SAL_VENTA",
+    "AJUSTE_POSITIVO": "AJ_POSITIVO",
+    "AJUSTE_POS": "AJ_POSITIVO",
+    "AJUSTE_NEGATIVO": "AJ_NEGATIVO",
+    "AJUSTE_NEG": "AJ_NEGATIVO",
+}
 
 
 def normalize_header(value: str) -> str:
@@ -183,11 +195,12 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
         fail("E01", "codigo", "El código está vacío.")
         return result
     key = code.lower()
-    if key and key in seen_codes:
-        fail("E02", "codigo", "El código está duplicado dentro del archivo.")
-        return result
-    if key:
-        seen_codes.add(key)
+    if not is_movement_file:
+        if key and key in seen_codes:
+            fail("E02", "codigo", "El código está duplicado dentro del archivo.")
+            return result
+        if key:
+            seen_codes.add(key)
     if code and len(code) > 50:
         fail("E10", "codigo", "El código excede 50 caracteres.")
 
@@ -226,7 +239,7 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
             fail("E21", code_key, "El producto no existe y el movimiento no puede validarse.")
         if errors:
             return result
-        result.accion = ACTION_NO_CHANGE
+        result.accion = ACTION_INSERT
         result.values = values
         return result
 
@@ -526,6 +539,7 @@ class ImportService:
             rows=results,
             warnings=warnings,
             repetido=repeated,
+            file_type=file_type,
         )
 
     def cancel(self, import_id: int) -> None:
@@ -593,7 +607,10 @@ class ImportService:
                     code="CSV_CON_ERRORES",
                 )
 
-            outcome = self._write_rows(uow, import_id, results, progress)
+            if options.file_type == FileType.MOVIMIENTOS:
+                outcome = self._write_movement_rows(uow, import_id, results, options, progress)
+            else:
+                outcome = self._write_rows(uow, import_id, results, progress)
             counters = {
                 "filas_nuevas": current["filas_nuevas"],
                 "filas_actualizables": current["filas_actualizables"],
@@ -618,6 +635,74 @@ class ImportService:
             )
             uow.commit()
             return outcome
+
+    def _write_movement_rows(
+        self,
+        uow: WorkUnit,
+        import_id: int,
+        results: list[RowResult],
+        options: ImportOptions,
+        progress: ProgressCallback | None,
+    ) -> ImportResult:
+        applied = 0
+        rejected = 0
+        total = len(results)
+        for index, row in enumerate(results, start=1):
+            if row.accion == ACTION_ERROR:
+                rejected += 1
+                continue
+            producto_codigo = (row.raw.get("codigo_producto") or row.raw.get("codigo") or "").strip()
+            if not producto_codigo:
+                rejected += 1
+                continue
+            producto = uow.products.get_by_code(producto_codigo)
+            if producto is None:
+                raise ValidationError(
+                    f"No existe el producto {producto_codigo}.", code="PRODUCTO_NO_ENCONTRADO"
+                )
+            tipo = (row.raw.get("tipo_movimiento") or "").strip()
+            tipo_codigo = _resolve_movement_type_code(uow, tipo)
+            if tipo_codigo is None:
+                raise ValidationError(
+                    f"Tipo de movimiento no reconocido: {tipo}.", code="TIPO_MOVIMIENTO_INVALIDO"
+                )
+            cantidad_text = (row.raw.get("cantidad") or "").strip()
+            if not cantidad_text:
+                raise ValidationError("La cantidad es obligatoria.", code="CSV_CANTIDAD_REQUERIDA")
+            try:
+                cantidad = parse_decimal(cantidad_text, options.decimal_separator)
+            except InvalidOperation as error:
+                raise ValidationError(f"Valor numérico inválido: '{cantidad_text}'.", code="CSV_CANTIDAD_INVALIDA") from error
+            if cantidad <= ZERO:
+                raise ValidationError("La cantidad debe ser mayor que cero.", code="CSV_CANTIDAD_INVALIDA")
+            fecha_text = (row.raw.get("fecha") or "").strip()
+            try:
+                movimiento_date = date.fromisoformat(fecha_text) if fecha_text else today_local()
+            except ValueError as error:
+                raise ValidationError(
+                    f"La fecha '{fecha_text}' no es válida.", code="CSV_FECHA_INVALIDA"
+                ) from error
+            request = MovementRequest(
+                tipo_codigo=tipo_codigo,
+                fecha=movimiento_date,
+                lines=(MovementLine(producto_id=producto.id, cantidad=cantidad),),
+                motivo=f"Importación CSV #{import_id}",
+                documento_referencia=(row.raw.get("documento") or "").strip() or None,
+                observacion=(row.raw.get("observacion") or row.raw.get("descripcion") or "").strip() or None,
+                importacion_id=import_id,
+            )
+            self._movements.register_in(uow, request, check_permission=False)
+            applied += 1
+            if progress is not None and (index % 200 == 0 or index == total):
+                progress(index, total)
+        return ImportResult(
+            importacion_id=import_id,
+            insertados=applied,
+            actualizados=0,
+            sin_cambios=0,
+            rechazados=rejected,
+            movimientos=applied,
+        )
 
     def _write_rows(
         self,
@@ -786,6 +871,22 @@ def _counters(results: list[RowResult]) -> dict[str, int]:
         "filas_actualizables": sum(1 for r in results if r.accion == ACTION_UPDATE),
         "filas_error": sum(1 for r in results if r.accion == ACTION_ERROR),
     }
+
+
+def _resolve_movement_type_code(uow: WorkUnit, raw_type: str) -> str | None:
+    normalized = raw_type.strip().upper().replace(" ", "_").replace("-", "_")
+    movement_types = uow.movements.list_types(include_inactive=False)
+    by_code = {movement_type.codigo.upper(): movement_type.codigo for movement_type in movement_types}
+    if normalized in by_code:
+        return by_code[normalized]
+    alias = _MOVEMENT_KIND_ALIASES.get(normalized)
+    if alias and alias in by_code:
+        return by_code[alias]
+    by_name = {
+        movement_type.nombre.strip().upper().replace(" ", "_").replace("-", "_"): movement_type.codigo
+        for movement_type in movement_types
+    }
+    return by_name.get(normalized)
 
 
 def _detail_row(result: RowResult) -> dict[str, Any]:

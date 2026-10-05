@@ -61,6 +61,7 @@ from sisalmacen.domain.errors import DomainError
 from sisalmacen.domain.importing import (
 
     ACTION_ERROR,
+    FileType,
 
     ImportDetail,
 
@@ -496,6 +497,8 @@ class ImportPage(QWidget):
 
     def _read_options(self) -> ImportOptions:
 
+        file_type = getattr(self._preview, "file_type", FileType.DESCONOCIDO)
+
         return ImportOptions(
 
             mode=self._mode.currentData(),
@@ -511,6 +514,8 @@ class ImportPage(QWidget):
             apply_stock=self._apply_stock.isChecked(),
 
             skip_error_rows=self._skip_errors.isChecked(),
+
+            file_type=file_type,
 
         )
 
@@ -685,23 +690,20 @@ class ImportPage(QWidget):
         colors: list[QColor | None] = []
 
         for result in preview.rows[:MAX_PREVIEW_ROWS]:
-
+            description = (result.raw.get("descripcion") or result.raw.get("observacion") or "").strip()
+            detail = "; ".join(f"{e.code} {e.column}: {e.message}" for e in result.errors)
+            if description and detail:
+                detail = f"{description} · {detail}"
+            elif description:
+                detail = description
             rows.append(
-
                 [
-
                     str(result.nro_fila),
-
                     result.codigo,
-
                     _ACTION_LABELS.get(result.accion, result.accion),
-
-                    "; ".join(f"{e.code} {e.column}: {e.message}" for e in result.errors),
-
+                    detail,
                 ]
-
             )
-
             colors.append(_ERROR_COLOR if result.accion == ACTION_ERROR else None)
 
         self._model.set_rows(rows, colors=colors)
