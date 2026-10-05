@@ -236,7 +236,7 @@ def classify_row(  # noqa: C901, PLR0912, PLR0915
             elif column == "tipo_movimiento":
                 values[column] = text
         if not existing:
-            fail("E21", code_key, "El producto no existe y el movimiento no puede validarse.")
+            fail("E21", code_key, f"Producto '{code}' no existe. Los movimientos requieren un producto preexistente.")
         if errors:
             return result
         result.accion = ACTION_INSERT
@@ -526,6 +526,26 @@ class ImportService:
             counters = _counters(results)
             uow.imports.update_state(import_id, "VALIDADA", counters, finished=False)
             uow.commit()
+        
+        # Detectar productos faltantes en importación de movimientos
+        if file_type == FileType.MOVIMIENTOS:
+            missing_products = set()
+            for result in results:
+                if result.accion == ACTION_ERROR:
+                    # Verificar si el error es por producto no encontrado (E21)
+                    for error in result.errors:
+                        if error.code == "E21" and "producto" in error.message.lower():
+                            missing_products.add(result.codigo)
+            if missing_products:
+                sorted_products = sorted(missing_products)
+                product_list = ", ".join(sorted_products[:10])
+                if len(sorted_products) > 10:
+                    product_list += f"... ({len(sorted_products) - 10} más)"
+                warnings.append(
+                    f"⚠️ PRODUCTOS NO ENCONTRADOS: {product_list}. "
+                    f"Los movimientos requieren que el producto exista previamente. "
+                    f"Por favor, importe primero los productos o créelos manualmente."
+                )
 
         return ImportPreview(
             importacion_id=import_id,
