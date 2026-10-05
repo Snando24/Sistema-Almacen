@@ -112,12 +112,10 @@ class ProductsPage(QWidget):
         filters.addWidget(search_button, 2, 4)
         filters.addWidget(clear_button, 3, 4)
 
-        headers = ["Código", "Descripción", "Categoría", "Unidad", "Stock", "Mínimo"]
-        right = {4, 5}
-        if self._show_prices:
-            headers.append("P. venta")
-            right.add(6)
-        headers += ["Estado", "Alerta"]
+        # Columnas simplificadas: solo información esencial en la tabla
+        # Categoría, Unidad, Precio, etc. se ven en el detalle del producto
+        headers = ["Código", "Descripción", "Stock", "Mínimo", "Estado", "Alerta"]
+        right = {2, 3}  # Stock y Mínimo alineados a la derecha
         self._model = TableModel(headers, right_aligned=right)
         self._table = make_table(self._model)
         self._table.doubleClicked.connect(lambda _index: self._detail())
@@ -245,17 +243,15 @@ class ProductsPage(QWidget):
         colors: list[QColor | None] = []
         for item in result.items:
             alert = item.alert()
+            # Columnas simplificadas: Código, Descripción, Stock, Mínimo, Estado, Alerta
             row = [
                 item.codigo,
                 item.nombre,
-                item.categoria,
-                item.unidad,
                 fmt_qty(item.cantidad),
                 fmt_qty(item.stock_minimo) if item.stock_minimo is not None else "Sin configurar",
+                "Activo" if item.activo else "Inactivo",
+                ALERT_LABELS.get(alert or "", ""),
             ]
-            if self._show_prices:
-                row.append(fmt_money(item.precio_venta))
-            row += ["Activo" if item.activo else "Inactivo", ALERT_LABELS.get(alert or "", "")]
             rows.append(row)
             colors.append(
                 _ALERT_COLORS.get(alert or "") or (None if item.activo else _INACTIVE_COLOR)

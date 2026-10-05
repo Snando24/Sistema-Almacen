@@ -30,8 +30,12 @@ from sisalmacen.domain.importing import (
     ACTION_UPDATE,
     CLEAR_TOKEN,
     COLUMNS,
+    COLUMNS_MOVIMIENTOS,
+    COLUMNS_PRODUCTOS,
     MODES,
     REQUIRED_FOR_INSERT,
+    REQUIRED_FOR_MOVEMENT,
+    FileType,
     ImportDetail,
     ImportLookups,
     ImportOptions,
@@ -41,6 +45,7 @@ from sisalmacen.domain.importing import (
     PendingCatalog,
     RowError,
     RowResult,
+    detect_file_type,
 )
 from sisalmacen.domain.inventory import (
     MONEY_PLACES,
@@ -66,6 +71,7 @@ _CATALOG_COLUMNS = (
     ("ubicacion", "ubicacion_id", "ubicaciones", False),
 )
 _HEADER_ALIASES: dict[str, tuple[str, ...]] = {
+    # Campos de PRODUCTOS
     "codigo": ("codigo", "codigo_producto"),
     "nombre": ("nombre", "descripcion"),
     "categoria": ("categoria",),
@@ -82,6 +88,15 @@ _HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "stock": ("stock", "stock_actual", "stock_inicial"),
     "estado": ("estado",),
     "observaciones": ("observaciones", "observacion"),
+    # Campos de MOVIMIENTOS
+    "tipo_movimiento": ("tipo_movimiento",),
+    "fecha": ("fecha",),
+    "codigo_producto": ("codigo_producto",),
+    "cantidad": ("cantidad",),
+    "um": ("um", "unidad_medida"),
+    "documento": ("documento",),
+    "almacen": ("almacen",),
+    "observacion": ("observacion", "observaciones"),
 }
 _LEGACY_PRODUCT_HINTS = frozenset({"codigo_producto", "descripcion", "descripcion_adicional"})
 
@@ -104,8 +119,8 @@ def parse_decimal(text: str, separator: str) -> Decimal:
     return value
 
 
-def resolve_headers(headers: list[str]) -> tuple[dict[str, str], list[str], bool]:
-    """Mapea encabezados reales a columnas canónicas y devuelve advertencias."""
+def resolve_headers(headers: list[str]) -> tuple[dict[str, str], list[str], bool, FileType]:
+    """Mapea encabezados reales a columnas canónicas y devuelve advertencias y tipo detectado."""
 
     normalized = {normalize_header(header): header for header in headers}
     resolved: dict[str, str] = {}
@@ -126,7 +141,9 @@ def resolve_headers(headers: list[str]) -> tuple[dict[str, str], list[str], bool
         or "descripcion_adicional" in normalized
         or ("descripcion" in normalized and "nombre" not in normalized and "codigo" in normalized)
     )
-    return resolved, warnings, legacy_product_format
+    # Detectar tipo de archivo
+    file_type = detect_file_type(headers)
+    return resolved, warnings, legacy_product_format, file_type
 
 
 # ---------- clasificación de filas (sin BD) ----------
@@ -404,8 +421,20 @@ class ImportService:
             max_rows=max_rows,
         )
 
-        header_map, warnings, legacy_product_format = resolve_headers(content.headers)
-        required = ("codigo",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+        header_map, warnings, legacy_product_format, file_type = resolve_headers(content.headers)
+        
+        # Determinar campos requeridos según el tipo de archivo detectado
+        if file_type == FileType.MOVIMIENTOS:
+            required = REQUIRED_FOR_MOVEMENT
+            columns_to_use = COLUMNS_MOVIMIENTOS
+        elif file_type == FileType.PRODUCTOS:
+            required = ("codigo",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+            columns_to_use = COLUMNS_PRODUCTOS
+        else:
+            # Fallback a Productos para compatibilidad retroactiva
+            required = ("codigo",) if options.mode == "ACTUALIZAR" else REQUIRED_FOR_INSERT
+            columns_to_use = COLUMNS_PRODUCTOS
+            
         missing = [column for column in required if column not in header_map]
         if "unidad" in missing and legacy_product_format:
             missing = [column for column in missing if column != "unidad"]
@@ -418,7 +447,7 @@ class ImportService:
                 number,
                 {
                     column: row.get(header_map[column], "")
-                    for column in COLUMNS
+                    for column in columns_to_use
                     if column in header_map
                 },
             )
@@ -427,6 +456,18 @@ class ImportService:
         if legacy_product_format and "unidad" not in header_map:
             for _number, row in rows:
                 row.setdefault("unidad", "__LEGACY_UND__")
+        
+        # Actualizar file_type en las opciones
+        options = ImportOptions(
+            mode=options.mode,
+            encoding=options.encoding,
+            delimiter=options.delimiter,
+            decimal_separator=options.decimal_separator,
+            create_missing_catalogs=options.create_missing_catalogs,
+            apply_stock=options.apply_stock,
+            skip_error_rows=options.skip_error_rows,
+            file_type=file_type,
+        )
 
         with self._uow_factory() as uow:
             lookups = uow.imports.load_lookups()

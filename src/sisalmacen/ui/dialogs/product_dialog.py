@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from sisalmacen.application.services import AppServices
 from sisalmacen.application.settings import flag
-from sisalmacen.domain.inventory import ALERT_LABELS, MovementFilter, ProductData, ProductRecord
+from sisalmacen.domain.inventory import ALERT_LABELS, ALERT_BAJO_MINIMO, MovementFilter, ProductData, ProductRecord
 from sisalmacen.ui.theme import apply_dialog_theme
 from sisalmacen.ui.widgets import (
     TableModel,
@@ -196,6 +196,19 @@ class ProductDialog(QDialog):
             else:
                 self._services.products.update(self._product.id, data)
                 self.saved_id = self._product.id
+            
+            # Verificar si el producto está bajo mínimo después de guardar
+            saved_product = self._services.products.get(self.saved_id)
+            alert = saved_product.alert()
+            if alert == ALERT_BAJO_MINIMO:
+                QMessageBox.warning(
+                    self,
+                    "⚠️ Stock bajo mínimo",
+                    f"Producto: {saved_product.codigo}\n"
+                    f"Stock actual: {saved_product.cantidad}\n"
+                    f"Stock mínimo: {saved_product.stock_minimo}\n\n"
+                    f"Este producto está por debajo del stock mínimo configurado.",
+                )
         except Exception as error:
             show_error(self, error)
             return
