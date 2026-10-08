@@ -10,7 +10,14 @@ from PySide6.QtWidgets import QApplication, QLabel
 
 from sisalmacen.domain.inventory import MovementLine, MovementRequest
 from sisalmacen.ui.main_window import SECTION_LABELS, MainWindow
-from sisalmacen.ui.theme import THEME_DARK, THEME_LIGHT, THEME_SETTING_KEY, get_brand_style_sheet
+from sisalmacen.ui.theme import (
+    THEME_DARK,
+    THEME_LIGHT,
+    THEME_SETTING_KEY,
+    get_app_icon,
+    get_brand_logo_path,
+    get_brand_style_sheet,
+)
 
 
 @pytest.fixture
@@ -44,6 +51,12 @@ def test_window_is_local_without_login(window) -> None:  # type: ignore[no-untyp
     texts = [label.text() for label in window.findChildren(QLabel)]
     assert any("MODO LOCAL" in text for text in texts)
     assert not any("contraseña" in text.lower() for text in texts)
+
+
+def test_branding_assets_are_available(window) -> None:  # type: ignore[no-untyped-def]
+    assert get_brand_logo_path().exists()
+    assert not get_app_icon().isNull()
+    assert not window.windowIcon().isNull()
 
 
 def test_theme_toggle_persists_and_applies_dark_mode(window, services) -> None:  # type: ignore[no-untyped-def]

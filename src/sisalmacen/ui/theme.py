@@ -6,8 +6,11 @@ amarillo de la excavadora y blanco.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import QApplication, QDialog
 
 BRAND_NAME = "R&R Grupo Corporación"
@@ -164,6 +167,49 @@ def apply_dialog_theme(dialog: QDialog) -> None:
     dialog.setPalette(get_brand_palette(current_theme_mode()))
     dialog.setAutoFillBackground(True)
     dialog.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+
+def _get_assets_dir() -> Path:
+    """Resuelve la carpeta de recursos visuales en desarrollo y en ejecutable."""
+
+    if getattr(sys, "frozen", False):
+        bundle_dir = Path(getattr(sys, "_MEIPASS"))
+        return bundle_dir / "src" / "sisalmacen" / "ui" / "assets"
+    return Path(__file__).resolve().parent / "assets"
+
+
+def get_brand_logo_path() -> Path:
+    """Devuelve la ruta del logo corporativo principal."""
+
+    return _get_assets_dir() / "brand_logo.png"
+
+
+def get_app_icon_path() -> Path:
+    """Devuelve la ruta del icono principal de la aplicación."""
+
+    return _get_assets_dir() / "app_icon.ico"
+
+
+def get_app_icon() -> QIcon:
+    """Carga el icono principal de la aplicación."""
+
+    icon_path = get_app_icon_path()
+    return QIcon(str(icon_path)) if icon_path.exists() else QIcon()
+
+
+def get_brand_logo_pixmap(*, max_width: int = 220, max_height: int = 88) -> QPixmap:
+    """Carga el logo corporativo listo para usarse en la interfaz."""
+
+    logo_path = get_brand_logo_path()
+    pixmap = QPixmap(str(logo_path))
+    if pixmap.isNull():
+        return QPixmap()
+    return pixmap.scaled(
+        max_width,
+        max_height,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
 
 
 def get_brand_logo_html(*, size_px: int = 44) -> str:

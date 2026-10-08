@@ -3,11 +3,12 @@
 
 a = Analysis(
     ['src/sisalmacen/main.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[],
     datas=[
         ('alembic.ini', '.'),
         ('src/sisalmacen/infrastructure/migrations', 'src/sisalmacen/infrastructure/migrations'),
+        ('src/sisalmacen/ui/assets', 'src/sisalmacen/ui/assets'),
         ('db', 'db'),
     ],
     hiddenimports=[],
@@ -31,6 +32,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    icon='src/sisalmacen/ui/assets/app_icon.ico',
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

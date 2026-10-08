@@ -33,7 +33,9 @@ from sisalmacen.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
     THEME_SETTING_KEY,
+    get_app_icon,
     apply_application_theme,
+    get_brand_logo_pixmap,
     get_brand_logo_html,
     normalize_theme_mode,
 )
@@ -72,6 +74,7 @@ class MainWindow(QMainWindow):
         )
         self._theme_toggle: QToolButton | None = None
         self.setWindowTitle(BRAND_NAME)
+        self.setWindowIcon(get_app_icon())
         self.setMinimumSize(1000, 660)
         self.resize(1240, 780)
         self._setup_ui()
@@ -133,9 +136,15 @@ class MainWindow(QMainWindow):
         bar = QFrame()
         bar.setObjectName("brand-bar")
 
-        logo = QLabel(get_brand_logo_html())
+        logo = QLabel()
         logo.setObjectName("brand-logo")
-        logo.setTextFormat(Qt.TextFormat.RichText)
+        logo_pixmap = get_brand_logo_pixmap()
+        if logo_pixmap.isNull():
+            logo.setText(get_brand_logo_html())
+            logo.setTextFormat(Qt.TextFormat.RichText)
+        else:
+            logo.setPixmap(logo_pixmap)
+            logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name = QLabel(BRAND_NAME.replace("R&R ", "").upper())
         name.setObjectName("brand-name")
         tagline = QLabel(BRAND_TAGLINE)

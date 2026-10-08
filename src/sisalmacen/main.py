@@ -4,18 +4,32 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from sisalmacen.bootstrap import bootstrap_application
 from sisalmacen.composition import build_services, start_local_session
+from sisalmacen.infrastructure.config import AppPaths
 from sisalmacen.ui.main_window import MainWindow
 from sisalmacen.ui.theme import (
     BRAND_NAME,
     THEME_LIGHT,
     THEME_SETTING_KEY,
     apply_application_theme,
+    get_app_icon,
 )
+
+
+def _build_runtime_label(path: Path, paths: AppPaths) -> str:
+    """Genera una etiqueta amigable para rutas locales mostradas en la UI."""
+
+    storage_root = paths.data_dir.parent
+    try:
+        relative = path.relative_to(storage_root)
+        return f"datos locales/{relative.as_posix()}"
+    except ValueError:
+        return str(path)
 
 
 def main() -> int:
@@ -24,6 +38,7 @@ def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(BRAND_NAME)
     app.setApplicationDisplayName(BRAND_NAME)
+    app.setWindowIcon(get_app_icon())
     apply_application_theme(app, THEME_LIGHT)
 
     try:
@@ -37,8 +52,8 @@ def main() -> int:
         )
         window = MainWindow(
             services=services,
-            database_label="var/sisalmacen.sqlite3",
-            logs_label="logs/sisalmacen.log",
+            database_label=_build_runtime_label(context.paths.database_path, context.paths),
+            logs_label=_build_runtime_label(context.paths.logs_dir / "sisalmacen.log", context.paths),
         )
     except Exception:  # pragma: no cover - manejo defensivo de arranque
         logging.getLogger("sisalmacen").exception("Fallo técnico al iniciar la aplicación.")
